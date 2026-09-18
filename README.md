@@ -142,6 +142,41 @@ See [Architecture](docs/architecture.md) for the full development roadmap.
 
 ---
 
+## Team & Contributors
+
+Eduvia is built with ❤️ by:
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Mahmoud-Abu-Al-Nour">
+        <img src="https://github.com/Mahmoud-Abu-Al-Nour.png?size=100" width="100px;" alt="Mahmoud Abu Al-Nour"/><br />
+        <sub><b>Mahmoud Abu Al-Nour</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/roudagaballah">
+        <img src="https://github.com/roudagaballah.png?size=100" width="100px;" alt="Rouda Gaballah"/><br />
+        <sub><b>Rouda Gaballah</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/ahmedsamehzaky">
+        <img src="https://github.com/ahmedsamehzaky.png?size=100" width="100px;" alt="Ahmed Sameh Zaky"/><br />
+        <sub><b>Ahmed Sameh Zaky</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/Alzahraa-Gamal22">
+        <img src="https://github.com/Alzahraa-Gamal22.png?size=100" width="100px;" alt="Alzahraa Gamal"/><br />
+        <sub><b>Alzahraa Gamal</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
