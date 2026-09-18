@@ -1,0 +1,1 @@
+"""Eduvia backend application package."""

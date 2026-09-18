@@ -1,0 +1,1 @@
+"""Eduvia AI package."""

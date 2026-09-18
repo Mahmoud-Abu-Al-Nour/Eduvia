@@ -1,0 +1,1 @@
+"""Eduvia core package."""
