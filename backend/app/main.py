@@ -4,14 +4,17 @@ FastAPI application entry point.
 """
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any, cast
 
 import structlog
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.errors import EduviaError, eduvia_error_handler, validation_exception_handler
 from app.core.logging import configure_logging
 from app.core.middleware import SecurityHeadersMiddleware
 from app.database.session import create_db_engine, dispose_db_engine
@@ -79,27 +82,25 @@ def create_application() -> FastAPI:
     # ── API Routers ────────────────────────────────────────────────────
     application.include_router(api_router, prefix="/api/v1")
 
+    # ── Exception Handlers ─────────────────────────────────────────────
+    application.add_exception_handler(EduviaError, cast(Any, eduvia_error_handler))
+    application.add_exception_handler(
+        RequestValidationError, cast(Any, validation_exception_handler)
+    )
+
+    @application.exception_handler(Exception)
+    async def unhandled_exception_handler(request: object, exc: Exception) -> JSONResponse:
+        """Global fallback exception handler."""
+        logger.error("unhandled_exception", error=str(exc), exc_info=exc)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal_server_error",
+                "message": "An unexpected error occurred. Please try again.",
+            },
+        )
+
     return application
 
 
-
-
-from fastapi.exceptions import RequestValidationError
-from app.core.errors import EduviaError, eduvia_error_handler, validation_exception_handler
-
 app = create_application()
-app.add_exception_handler(EduviaError, eduvia_error_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
-
-
-@app.exception_handler(Exception)
-async def unhandled_exception_handler(request: object, exc: Exception) -> JSONResponse:
-    """Global fallback exception handler."""
-    logger.error("unhandled_exception", error=str(exc), exc_info=exc)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "internal_server_error",
-            "message": "An unexpected error occurred. Please try again.",
-        },
-    )
