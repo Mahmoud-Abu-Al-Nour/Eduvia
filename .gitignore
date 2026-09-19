@@ -68,5 +68,5 @@ secrets/
 scratch/
 
 # ─── Obsidian local config (vault content is tracked) ──────────
+.obsidian/
 Eduvia Notes/.obsidian/
-Eduvia Notes/
