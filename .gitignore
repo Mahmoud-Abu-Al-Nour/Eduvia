@@ -67,6 +67,6 @@ secrets/
 # ─── Scratch & temporary verification scripts ──────────────────
 scratch/
 
-# ─── Obsidian local config (vault content is tracked) ──────────
+# ─── Obsidian local config & vault ─────────────────────────────
 .obsidian/
-Eduvia Notes/.obsidian/
+Eduvia Notes/
