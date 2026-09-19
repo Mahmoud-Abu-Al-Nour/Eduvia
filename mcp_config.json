@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "eduvia": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "tools/eduvia_mcp",
+        "python",
+        "-m",
+        "eduvia_mcp"
+      ]
+    }
+  }
+}
