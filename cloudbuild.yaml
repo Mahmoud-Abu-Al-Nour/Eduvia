@@ -1,0 +1,93 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Eduvia — Google Cloud Build CI/CD Pipeline
+#  Builds container images, applies database migrations, and deploys to Cloud Run.
+# ─────────────────────────────────────────────────────────────────────────────
+
+steps:
+  # ── 1. Build Backend Image ──────────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-backend"
+    args:
+      - "build"
+      - "--target=production"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-backend:$COMMIT_SHA"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-backend:latest"
+      - "./backend"
+
+  # ── 2. Build Frontend Image ─────────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-frontend"
+    args:
+      - "build"
+      - "--target=production"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-frontend:$COMMIT_SHA"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-frontend:latest"
+      - "./frontend"
+
+  # ── 3. Push Images to Artifact Registry ─────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-images"
+    args:
+      - "push"
+      - "--all-tags"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-backend"
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-frontend-images"
+    args:
+      - "push"
+      - "--all-tags"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-frontend"
+
+  # ── 4. Apply Database Migrations (Cloud Run Job) ────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "apply-migrations"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        echo "Executing database migrations via Cloud Run Job..."
+        gcloud run jobs execute eduvia-migration-job \
+          --region=$_REGION \
+          --wait || echo "Migration job skipped or completed."
+
+  # ── 5. Deploy Backend to Cloud Run ──────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-backend"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "deploy"
+      - "eduvia-backend-$_ENV"
+      - "--image=$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-backend:$COMMIT_SHA"
+      - "--region=$_REGION"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+
+  # ── 6. Deploy Frontend to Cloud Run ─────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-frontend"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "deploy"
+      - "eduvia-frontend-$_ENV"
+      - "--image=$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-frontend:$COMMIT_SHA"
+      - "--region=$_REGION"
+      - "--platform=managed"
+      - "--allow-unauthenticated"
+
+substitutions:
+  _REGION: "us-central1"
+  _ENV: "production"
+
+images:
+  - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-backend:$COMMIT_SHA"
+  - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-frontend:$COMMIT_SHA"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

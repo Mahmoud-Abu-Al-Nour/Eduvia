@@ -31,7 +31,7 @@ async def create_db_engine() -> None:
     global _engine, _async_session_factory
 
     _engine = create_async_engine(
-        settings.DATABASE_URL,
+        settings.effective_database_url,
         echo=settings.APP_DEBUG,  # Log SQL in debug mode only
         pool_pre_ping=True,        # Verify connections before use
         pool_size=5,
@@ -46,7 +46,7 @@ async def create_db_engine() -> None:
         autoflush=False,
     )
 
-    logger.info("database_engine_created", url=_redact_db_url(settings.DATABASE_URL))
+    logger.info("database_engine_created", url=_redact_db_url(settings.effective_database_url))
 
 
 async def dispose_db_engine() -> None:

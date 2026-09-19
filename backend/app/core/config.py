@@ -30,9 +30,11 @@ class Settings(BaseSettings):
     APP_ENV: Literal["development", "staging", "production"] = "development"
     APP_DEBUG: bool = False
     APP_SECRET_KEY: str
+    PORT: int = 8000
 
-    # ── Database (PostgreSQL) ─────────────────────────────────────────
+    # ── Database (PostgreSQL & Cloud SQL) ──────────────────────────────
     DATABASE_URL: str
+    CLOUD_SQL_CONNECTION_NAME: str = ""
 
     # ── Vector Database (Qdrant) ──────────────────────────────────────
     QDRANT_URL: str = "http://localhost:6333"
@@ -88,8 +90,20 @@ class Settings(BaseSettings):
         return self.APP_ENV == "production"
 
     @property
+    def is_staging(self) -> bool:
+        return self.APP_ENV == "staging"
+
+    @property
     def is_development(self) -> bool:
         return self.APP_ENV == "development"
+
+    @property
+    def effective_database_url(self) -> str:
+        """Return the operational database URL, formatting Unix socket if using Cloud SQL."""
+        if self.CLOUD_SQL_CONNECTION_NAME and "/cloudsql/" not in self.DATABASE_URL:
+            sep = "&" if "?" in self.DATABASE_URL else "?"
+            return f"{self.DATABASE_URL}{sep}host=/cloudsql/{self.CLOUD_SQL_CONNECTION_NAME}"
+        return self.DATABASE_URL
 
 
 @lru_cache

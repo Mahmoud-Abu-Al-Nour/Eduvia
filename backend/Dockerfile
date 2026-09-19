@@ -46,11 +46,12 @@ COPY --chown=eduvia:eduvia . .
 
 USER eduvia
 
-EXPOSE 8000
+ENV PORT=8000
+EXPOSE 8000 8080
 
-# Health check for Docker/Kubernetes
+# Health check for Docker/Kubernetes/Cloud Run
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/api/v1/health || exit 1
+    CMD curl -f "http://localhost:${PORT:-8000}/api/v1/health" || exit 1
 
-# Production: multiple workers
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+# Production: Cloud Run binds to $PORT dynamically
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
