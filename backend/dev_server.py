@@ -809,31 +809,33 @@ class MockRecommendationService:
         from app.curriculum.models import LearningObjective
 
         # Find learner profile
-        profile = None
-        for l in MOCK_LEARNERS:
-            if l.id == learner_id:
-                profile = l.profile
-                break
+        learner = in_memory_learners.get(learner_id)
+        profile = learner.profile if learner else demo_profile
 
-        # Build candidate objectives from mock curriculum
-        candidate_objectives: list[LearningObjective] = []
-        for curr in MOCK_CURRICULUM:
-            for subj in curr.subjects:
-                for unit in subj.units:
-                    for lesson in unit.lessons:
-                        for obj in lesson.learning_objectives:
-                            candidate_objectives.append(obj)
-
-        if not candidate_objectives:
-            # Fallback dummy objective
-            dummy_obj = LearningObjective(
-                id=uuid.uuid4(),
-                title={"en": "Foundational Math Concept", "ar": "مفهوم رياضيات تأسيسي"},
-                difficulty_level=1,
-                is_active=True,
-                order_index=0,
-            )
-            candidate_objectives = [dummy_obj]
+        # Build candidate objectives from mock curriculum fixtures
+        mock_obj1 = LearningObjective(
+            id=obj1_id,
+            lesson_id=less_id,
+            title=obj1_dict["title"],
+            description=obj1_dict.get("description"),
+            difficulty_level=obj1_dict.get("difficulty_level", 1),
+            assessment_criteria=obj1_dict.get("assessment_criteria"),
+            order_index=obj1_dict.get("order_index", 1),
+            is_active=True,
+            prerequisites=[],
+        )
+        mock_obj2 = LearningObjective(
+            id=obj2_id,
+            lesson_id=less_id,
+            title=obj2_dict["title"],
+            description=obj2_dict.get("description"),
+            difficulty_level=obj2_dict.get("difficulty_level", 2),
+            assessment_criteria=obj2_dict.get("assessment_criteria"),
+            order_index=obj2_dict.get("order_index", 2),
+            is_active=True,
+            prerequisites=[mock_obj1],
+        )
+        candidate_objectives: list[LearningObjective] = [mock_obj1, mock_obj2]
 
         summary = await _MOCK_ANALYTICS_INSTANCE.get_learner_summary(learner_id)
         mastery = await _MOCK_ANALYTICS_INSTANCE.get_learner_mastery(learner_id)
