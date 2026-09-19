@@ -16,6 +16,7 @@ from app.auth.security import get_password_hash
 from app.users.models import User, UserRole
 from app.database.session import get_db_session
 from app.curriculum.router import get_curriculum_service
+from typing import Any, AsyncGenerator
 
 now = datetime.now(timezone.utc)
 teacher_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -123,14 +124,14 @@ curriculum_summary_dict = {
 
 
 class MockUserService:
-    async def get_by_email(self, email: str):
+    async def get_by_email(self, email: str) -> User | None:
         if email == "teacher@eduvia.app":
             return demo_teacher
         if email == "admin@eduvia.app":
             return demo_admin
         return None
 
-    async def get_by_id(self, uid: uuid.UUID):
+    async def get_by_id(self, uid: uuid.UUID) -> User | None:
         if uid == teacher_id:
             return demo_teacher
         if uid == admin_id:
@@ -139,30 +140,30 @@ class MockUserService:
 
 
 class MockCurriculumService:
-    async def get_all(self):
+    async def get_all(self) -> list[dict[str, Any]]:
         return [curriculum_summary_dict]
 
-    async def get_by_id(self, cid: uuid.UUID):
+    async def get_by_id(self, cid: uuid.UUID) -> dict[str, Any] | None:
         if cid == curr_id:
             return curriculum_full_dict
         return None
 
-    async def get_subject(self, sid: uuid.UUID):
+    async def get_subject(self, sid: uuid.UUID) -> dict[str, Any] | None:
         if sid == subj_id:
             return subject_dict
         return None
 
-    async def get_unit(self, uid: uuid.UUID):
+    async def get_unit(self, uid: uuid.UUID) -> dict[str, Any] | None:
         if uid == unit_id:
             return unit_dict
         return None
 
-    async def get_lesson(self, lid: uuid.UUID):
+    async def get_lesson(self, lid: uuid.UUID) -> dict[str, Any] | None:
         if lid == less_id:
             return lesson_dict
         return None
 
-    async def get_learning_objective(self, oid: uuid.UUID):
+    async def get_learning_objective(self, oid: uuid.UUID) -> dict[str, Any] | None:
         if oid == obj1_id:
             return obj1_dict
         if oid == obj2_id:
@@ -172,6 +173,7 @@ class MockCurriculumService:
 
 from app.learners.models import Learner, LearnerProfile
 from app.learners.router import get_learner_service
+from app.learners.schemas import LearnerCreate, LearnerUpdate, LearnerObservationCreate
 
 # Demo Learner fixture matching seed_demo_data.py
 demo_learner_id = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -276,12 +278,12 @@ in_memory_learners = {demo_learner_id: demo_learner}
 
 
 class MockLearnerService:
-    async def list_learners(self, teacher_id: uuid.UUID | None, is_admin: bool = False):
+    async def list_learners(self, teacher_id: uuid.UUID | None, is_admin: bool = False) -> list[Learner]:
         if is_admin:
             return list(in_memory_learners.values())
         return [l for l in in_memory_learners.values() if l.teacher_id == teacher_id]
 
-    async def get_by_id(self, learner_id: uuid.UUID, teacher_id: uuid.UUID | None = None, is_admin: bool = False):
+    async def get_by_id(self, learner_id: uuid.UUID, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> Learner | None:
         l = in_memory_learners.get(learner_id)
         if not l:
             return None
@@ -289,7 +291,7 @@ class MockLearnerService:
             return None
         return l
 
-    async def create(self, data, teacher_id: uuid.UUID | None):
+    async def create(self, data: LearnerCreate, teacher_id: uuid.UUID | None) -> Learner:
         new_id = uuid.uuid4()
         l = Learner(
             id=new_id,
@@ -381,7 +383,7 @@ class MockLearnerService:
         in_memory_learners[new_id] = l
         return l
 
-    async def update(self, learner_id: uuid.UUID, data, teacher_id: uuid.UUID | None = None, is_admin: bool = False):
+    async def update(self, learner_id: uuid.UUID, data: LearnerUpdate, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> Learner | None:
         l = in_memory_learners.get(learner_id)
         if not l:
             return None
@@ -406,7 +408,7 @@ class MockLearnerService:
         l.updated_at = datetime.now(timezone.utc)
         return l
 
-    async def delete(self, learner_id: uuid.UUID, teacher_id: uuid.UUID | None = None, is_admin: bool = False):
+    async def delete(self, learner_id: uuid.UUID, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> bool:
         l = in_memory_learners.get(learner_id)
         if not l:
             return False
@@ -415,7 +417,7 @@ class MockLearnerService:
         del in_memory_learners[learner_id]
         return True
 
-    async def add_observation(self, learner_id: uuid.UUID, observation, teacher_id: uuid.UUID | None = None, is_admin: bool = False):
+    async def add_observation(self, learner_id: uuid.UUID, observation: LearnerObservationCreate, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> dict[str, Any] | None:
         l = in_memory_learners.get(learner_id)
         if not l or not l.profile:
             return None
@@ -436,7 +438,7 @@ class MockLearnerService:
 
 
 # Patch dependency overrides on FastAPI app
-async def override_get_db_session():
+async def override_get_db_session() -> AsyncGenerator[AsyncMock, None]:
     yield AsyncMock()
 
 app.dependency_overrides[get_db_session] = override_get_db_session
