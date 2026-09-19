@@ -38,7 +38,7 @@ Design and implement the structured AI Activity Generation Engine. The engine tr
 ---
 
 ## Verification & Testing
-* **Test Suite**: 20 comprehensive unit and integration tests in `backend/tests/test_activities.py` covering:
+* **Test Suite**: 26 unit and integration tests (22 test functions including 5 parametrized modality cases) in `backend/tests/test_activities.py` covering:
   * Successful LLM generation.
   * LLM network timeout fallback.
   * Invalid JSON response fallback.
@@ -47,8 +47,9 @@ Design and implement the structured AI Activity Generation Engine. The engine tr
   * Unsupported activity type handling.
   * Teacher constraint application.
   * Multi-lingual prompt construction.
-* **Full Backend Regression**: **80/80 tests passed** (20 Phase 4 + 54 previous).
+* **Full Backend Regression**: **80/80 tests passed** (26 Phase 4 + 54 previous baseline).
 * **Frontend Build**: Vite production build succeeded cleanly.
+
 
 ---
 

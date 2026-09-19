@@ -100,7 +100,7 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
   * **Zero-Strand Guarantee**: Deterministic fallback activity generator (`fallbacks.py`) ensuring instant, valid activity generation across all failure cases (network outage, invalid model JSON, API quotas, or missing fields).
   * Teacher constraints and pedagogical overrides support.
   * REST API router (`/api/v1/activities/generate`) and mock generator integration in `dev_server.py`.
-* **Verified Milestone**: **80/80 backend tests passed** (20 Phase 4 tests + 54 baseline). Frontend build clean.
+* **Verified Milestone**: **80/80 backend tests passed** (26 Phase 4 tests [22 test functions including 5 parametrized modality cases] + 54 baseline). Frontend build clean.
 * **Gate Status**: **PHASE 4 — LOCKED**
 * **Known Non-Blocking Issue**: `google.generativeai` deprecation warning deferred to Phase 9.
 * **Documentation**: [[03 - AI & Adaptive Learning/Activity Generation|Activity Generation]], [[05 - Development History/Phase 04 — Activity Generation Engine|Phase 04 — Activity Generation Engine]]

@@ -129,7 +129,26 @@
 | Obsidian Wikilinks | Target: 0 broken links | 137 links scanned, **0 broken links** | **PASS** |
 | Tracking Verification | Tracked `.gitignore` & `Eduvia Notes` | 56 vault files + `.gitignore` tracked | **PASS** |
 
+### 4.1 Regression Suite Test Baseline Breakdown (Phases 0–9)
+
+| Phase Milestone | Test Suite Component | File | New Tests | Cumulative Baseline |
+| :--- | :--- | :--- | :---: | :---: |
+| **Phases 0–3 Foundation** | Auth, Users, Health, Curriculum, Learners, Integration, AI Provider Base | `test_auth.py` (4), `test_users.py` (4), `test_health.py` (7), `test_curriculum.py` (3), `test_learners.py` (13), `test_api_integration.py` (13), `test_ai_providers.py` (10 base tests) | +54 | **54 passed** |
+| **Phase 4** | Activity Generation Engine | `test_activities.py` (22 functions + 4 parametrized modality cases) | +26 | **80 passed** (54 + 26) |
+| **Phase 5** | Learner Experience & Interaction | `test_activity_interaction.py` | +31 | **111 passed** (80 + 31) |
+| **Phase 6** | Performance Tracking & Telemetry | `test_analytics.py` | +17 | **128 passed** (111 + 17) |
+| **Phase 7** | Learner Analytics & Mastery Tracking | `test_learner_analytics.py` | +15 | **143 passed** (128 + 15) |
+| **Phase 8** | Adaptive Learning Intelligence Engine | `test_recommendations.py` | +16 | **159 passed** (143 + 16) |
+| **Phase 9** | Gemini Production SDK & RAG Ingestion | `test_knowledge_ingestion.py` (5), `test_knowledge_retrieval.py` (6), `test_rag_generation.py` (3), `test_ai_providers.py` (+5 embeddings/error tests) | +19 | **178 passed** (159 + 19) |
+
+*Historical Audit & Discrepancy Resolution:*
+1. The foundational baseline for Phases 0–3 is and has always been **54 passed tests** (`13 + 4 + 3 + 7 + 13 + 4 + 10 = 54`). Zero tests were removed, renamed, merged, or relocated.
+2. The historical Phase 4 report listed 26 tests in its detailed breakdown but had a typographical error in its subheader stating "20 passed" (while reporting the correct total `54 + 26 = 80`).
+3. The Phase 9 report counted all 15 tests in `test_ai_providers.py` as "Phase 9 specific tests: 29 passed", overlooking that 10 of those tests were part of the original Phase 0–3 baseline. In reality, Phase 9 added 19 new tests to the 159 baseline (`159 + 19 = 178`).
+4. An informal chatbot response subtracting Phase 4 (as 20) and Phase 9 (as 29) from 178 produced `178 - (20 + 31 + 17 + 15 + 16 + 29) = 50`. The discrepancy of 4 was a mathematical artifact: `(+10 over-attributed to Phase 9) - (+6 under-attributed to Phase 4) = +4`, leaving `54 - 4 = 50`.
+
 ---
+
 
 ## 5. Summary of Deletions
 
