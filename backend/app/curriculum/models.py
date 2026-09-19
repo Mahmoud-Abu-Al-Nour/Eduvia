@@ -28,11 +28,11 @@ class Curriculum(EduviaBase):
     __tablename__ = "curricula"
 
     title: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    description: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    description: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     version: Mapped[str] = mapped_column(String, default="1.0.0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    
-    created_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
@@ -50,7 +50,7 @@ class Subject(EduviaBase):
         UUID(as_uuid=True), ForeignKey("curricula.id", ondelete="CASCADE")
     )
     title: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    description: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    description: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
@@ -67,7 +67,7 @@ class Unit(EduviaBase):
         UUID(as_uuid=True), ForeignKey("subjects.id", ondelete="CASCADE")
     )
     title: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    description: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    description: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
@@ -84,7 +84,7 @@ class Lesson(EduviaBase):
         UUID(as_uuid=True), ForeignKey("units.id", ondelete="CASCADE")
     )
     title: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    description: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    description: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     order_index: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships
@@ -101,20 +101,20 @@ class LearningObjective(EduviaBase):
         UUID(as_uuid=True), ForeignKey("lessons.id", ondelete="CASCADE")
     )
     title: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    description: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    
+    description: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # 1 (Beginner) to 5 (Mastery)
     difficulty_level: Mapped[int] = mapped_column(Integer, default=1)
-    
+
     # e.g., {"minimum_accuracy": 0.80, "maximum_assistance_level": 1, "required_completion": true}
-    assessment_criteria: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
-    
+    assessment_criteria: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     order_index: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Relationships
     lesson: Mapped["Lesson"] = relationship(back_populates="learning_objectives")
-    
+
     # Self-referencing many-to-many relationship for prerequisites
     prerequisites: Mapped[list["LearningObjective"]] = relationship(
         "LearningObjective",

@@ -6,18 +6,18 @@ environments (dev, staging, prod) without hardcoded strings.
 """
 from __future__ import annotations
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
 
 # Import all models so Alembic can detect them for autogenerate
 # As models are added in later phases, import them here:
 from app.database.base import EduviaBase  # noqa: F401
+from sqlalchemy import engine_from_config, pool
+
 from app.users.models import User  # Phase 1
-# from app.learners.models import Learner, LearnerProfile  # Phase 3
-# from app.curriculum.models import Curriculum, Subject, Unit, Lesson, LearningObjective  # Phase 2
+from app.curriculum.models import Curriculum, Subject, Unit, Lesson, LearningObjective  # Phase 2
+from app.learners.models import Learner, LearnerProfile  # Phase 3
 # from app.activities.models import Activity, ActivityAttempt  # Phase 4
 # from app.analytics.models import PerformanceEvent  # Phase 6
 

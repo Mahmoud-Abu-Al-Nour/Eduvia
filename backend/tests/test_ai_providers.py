@@ -6,10 +6,9 @@ making real API calls. All Gemini calls are mocked.
 """
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 from app.ai.providers.base import (
     GenerationConfig,
     LLMProvider,

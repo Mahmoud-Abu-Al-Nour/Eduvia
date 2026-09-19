@@ -19,13 +19,15 @@ export const LoginPage: React.FC = () => {
       formData.append("username", email);
       formData.append("password", password);
 
-      const response = await api.post("/auth/login", formData, {
+      const response = await api.post<{ access_token: string; refresh_token: string }>("/auth/login", formData, {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
       });
 
-      await login(response.data.access_token, response.data.refresh_token);
+      const accessToken = response.access_token || (response as any).data?.access_token;
+      const refreshToken = response.refresh_token || (response as any).data?.refresh_token;
+      await login(accessToken, refreshToken);
     } catch (err: any) {
       setError(
         err.response?.data?.detail || "An error occurred during login."

@@ -1,3 +1,2 @@
-// Eduvia — activities feature (Phase stub)
-export {}
-
+// Eduvia - activities feature
+export {};

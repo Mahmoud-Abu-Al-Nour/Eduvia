@@ -1,5 +1,4 @@
 import uuid
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,7 +23,7 @@ async def get_curriculum_service(db: AsyncSession = Depends(get_db_session)) -> 
     return CurriculumService(db)
 
 
-@router.get("", response_model=List[CurriculumResponse])
+@router.get("", response_model=list[CurriculumResponse])
 async def list_curricula(
     service: CurriculumService = Depends(get_curriculum_service),
     current_user: User = Depends(get_current_user),

@@ -5,9 +5,9 @@ import sys
 # Ensure the app module can be found
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.curriculum.models import Curriculum, LearningObjective, Lesson, Subject, Unit
 from app.database.session import SessionLocal
-from app.curriculum.models import Curriculum, Subject, Unit, Lesson, LearningObjective
+
 
 async def seed_curriculum():
     print("Starting Eduvia Demonstration Curriculum seeding...")
@@ -28,7 +28,7 @@ async def seed_curriculum():
         )
         session.add(curriculum)
         await session.flush()
-        
+
         # 2. Subject
         subject_math = Subject(
             curriculum_id=curriculum.id,
@@ -67,7 +67,7 @@ async def seed_curriculum():
         )
         session.add(obj_1_5)
         await session.flush()
-        
+
         obj_1_10 = LearningObjective(
             lesson_id=lesson_recog.id,
             title={"en": "Recognize numbers 1–10", "ar": "التعرف على الأرقام ١-١٠"},

@@ -1,3 +1,2 @@
-// Eduvia — curriculum feature (Phase stub)
-export {}
-
+// Eduvia - curriculum feature
+export {};

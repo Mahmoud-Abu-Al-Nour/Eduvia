@@ -1,3 +1,2 @@
-// Eduvia — recommendations feature (Phase stub)
-export {}
-
+// Eduvia - recommendations feature
+export {};

@@ -14,6 +14,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from 'axios'
 import type { HealthCheckResponse } from '@/types'
+import tokenStorage from './tokenStorage'
 
 // ── Axios Instance ────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-    const token = localStorage.getItem('eduvia_access_token')
+    const token = tokenStorage.getAccessToken()
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -48,10 +49,11 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      // Auth token expired — clear and redirect to login
-      localStorage.removeItem('eduvia_access_token')
-      localStorage.removeItem('eduvia_refresh_token')
-      window.location.href = '/login'
+      // Auth token expired / invalid — clear canonical tokens via tokenStorage
+      tokenStorage.clearTokens()
+      if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
 
     // Normalize error message from backend error schema
@@ -156,8 +158,6 @@ export const healthApi = {
  * export const recommendationsApi = { ... } // Phase 8
  */
 
-// ── Export ────────────────────────────────────────────────────────────────
-
 export const api = {
   get,
   post,
@@ -165,6 +165,7 @@ export const api = {
   patch,
   delete: del,
   health: healthApi,
+  client: apiClient,
 }
 
-export default apiClient
+export default api

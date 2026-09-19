@@ -1,3 +1,2 @@
-// Eduvia — learning feature (Phase stub)
-export {}
-
+// Eduvia - learning feature
+export {};

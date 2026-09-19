@@ -1,3 +1,2 @@
-// Eduvia — dashboard feature (Phase stub)
-export {}
-
+// Eduvia - dashboard feature
+export {};

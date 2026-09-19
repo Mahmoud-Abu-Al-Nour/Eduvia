@@ -63,3 +63,9 @@ coverage.xml
 *.key
 *.cert
 secrets/
+
+# Local Obsidian project knowledge base
+Eduvia Notes/
+
+# Scratch & temporary verification scripts
+scratch/

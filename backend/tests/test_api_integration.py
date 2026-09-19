@@ -3,20 +3,17 @@ from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
-from app.auth.dependencies import get_current_user
 from app.auth.security import create_access_token, get_password_hash
 from app.main import app
 from app.users.models import User, UserRole
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 # Mock user for testing
-now = datetime.now(timezone.utc)
+now = datetime.now(UTC)
 mock_user_id = uuid.uuid4()
 mock_user = User(
     id=mock_user_id,
@@ -44,6 +41,7 @@ mock_admin = User(
 
 from app.database.session import get_db_session
 
+
 @pytest.fixture(autouse=True)
 def override_db_session():
     async def override_get_db_session():
@@ -57,18 +55,18 @@ def mock_user_service():
     mock_user_service = AsyncMock()
     mock_user_service.get_by_email.return_value = mock_user
     mock_user_service.get_by_id.return_value = mock_user
-    
+
     async def override_get_db_session():
         yield AsyncMock()
 
     app.dependency_overrides[get_db_session] = override_get_db_session
-    
+
     # We also need to patch the UserService instantiation in the routers
     with patch("app.auth.router.UserService", return_value=mock_user_service), \
          patch("app.users.router.UserService", return_value=mock_user_service), \
          patch("app.auth.dependencies.UserService", return_value=mock_user_service):
         yield mock_user_service
-    
+
     app.dependency_overrides.clear()
 
 
@@ -141,9 +139,10 @@ def test_role_restriction(mock_user_service):
     """Test admin role restriction."""
     # Teacher tries to access admin-only endpoint (we need an admin endpoint to test)
     # Since we haven't implemented an admin-only endpoint yet, we can test the dependency itself
-    from app.auth.dependencies import get_current_active_admin
     import asyncio
-    
+
+    from app.auth.dependencies import get_current_active_admin
+
     with pytest.raises(Exception) as exc_info:
         asyncio.run(get_current_active_admin(current_user=mock_user))
     assert exc_info.value.status_code == 403
@@ -152,3 +151,60 @@ def test_role_restriction(mock_user_service):
     # Admin access should pass
     result = asyncio.run(get_current_active_admin(current_user=mock_admin))
     assert result.email == "admin@eduvia.app"
+
+
+def test_list_curricula_unauthenticated():
+    """Unauthenticated users cannot list curricula."""
+    response = client.get("/api/v1/curricula")
+    assert response.status_code == 401
+
+
+def test_list_curricula_authenticated(mock_user_service):
+    """Authenticated teachers can list curricula."""
+    token = create_access_token(subject=str(mock_user_id))
+    from app.curriculum.router import get_curriculum_service
+
+    mock_curr_service = AsyncMock()
+    mock_curr_service.get_all.return_value = []
+    app.dependency_overrides[get_curriculum_service] = lambda: mock_curr_service
+
+    try:
+        response = client.get(
+            "/api/v1/curricula", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200
+        assert response.json() == []
+    finally:
+        app.dependency_overrides.pop(get_curriculum_service, None)
+
+
+def test_create_curriculum_forbidden_for_teacher(mock_user_service):
+    """Teachers cannot create curricula (Admin only)."""
+    token = create_access_token(subject=str(mock_user_id))  # Teacher role
+    response = client.post(
+        "/api/v1/curricula",
+        json={"title": {"en": "Science"}},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_curriculum_endpoint_invalid_token():
+    """Curriculum endpoints reject invalid tokens with 401."""
+    response = client.get(
+        "/api/v1/curricula",
+        headers={"Authorization": "Bearer not.a.valid.jwt"},
+    )
+    assert response.status_code == 401
+
+
+def test_curriculum_endpoint_expired_token(mock_user_service):
+    """Curriculum endpoints reject expired tokens with 401."""
+    expired_token = create_access_token(
+        subject=str(mock_user_id), expires_delta=timedelta(seconds=-10)
+    )
+    response = client.get(
+        "/api/v1/curricula",
+        headers={"Authorization": f"Bearer {expired_token}"},
+    )
+    assert response.status_code == 401

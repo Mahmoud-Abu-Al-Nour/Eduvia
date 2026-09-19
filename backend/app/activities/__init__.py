@@ -1,2 +1,1 @@
-# Eduvia — activities module (Phase 0 stub)
-
+ï»¿# Eduvia - activities module (Phase 0 stub)

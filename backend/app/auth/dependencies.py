@@ -29,35 +29,35 @@ async def get_current_user(session: SessionDep, token: TokenDep) -> User:
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
         user_id_str = payload.get("sub")
         token_type = payload.get("type")
-        
+
         if user_id_str is None or token_type != "access":
             raise credentials_exception
-            
+
         try:
             user_id = uuid.UUID(user_id_str)
         except ValueError:
             raise credentials_exception
-            
+
     except (jwt.PyJWTError, ValidationError):
         raise credentials_exception
 
     user_service = UserService(session)
     user = await user_service.get_by_id(user_id)
-    
+
     if user is None:
         raise credentials_exception
-        
+
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
-        
+
     return user
 
 
@@ -67,7 +67,7 @@ async def get_current_active_admin(
     """Dependency to check if the current user is an admin."""
     if current_user.role.value != "admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have enough privileges"
         )
     return current_user

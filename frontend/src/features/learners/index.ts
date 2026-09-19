@@ -1,3 +1,2 @@
-// Eduvia — learners feature (Phase stub)
-export {}
-
+// Eduvia - learners feature (Phase 3)
+export * from "./LearnerManager";

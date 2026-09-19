@@ -1,3 +1,2 @@
-// Eduvia — auth feature (Phase stub)
-export {}
-
+// Eduvia - auth feature
+export {};

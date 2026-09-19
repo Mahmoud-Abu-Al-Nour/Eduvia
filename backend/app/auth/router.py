@@ -29,7 +29,7 @@ async def login_access_token(
     """
     user_service = UserService(session)
     user = await user_service.get_by_email(form_data.username)
-    
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -38,10 +38,10 @@ async def login_access_token(
         )
     elif not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
-        
+
     return Token(
         access_token=create_access_token(user.id),
         refresh_token=create_refresh_token(user.id),

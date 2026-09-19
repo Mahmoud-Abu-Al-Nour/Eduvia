@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/services/api";
+import tokenStorage from "@/services/tokenStorage";
 
 export interface User {
   id: string;
@@ -24,36 +25,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserMe = async () => {
     try {
-      const response = await api.get<User>("/users/me");
-      setUser(response.data);
+      const userData = await api.get<User>("/users/me");
+      setUser(userData);
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      console.error("Failed to fetch user session:", error);
       setUser(null);
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
+      tokenStorage.clearTokens();
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
+    // Check canonical token storage on startup
+    if (tokenStorage.hasAccessToken()) {
       fetchUserMe();
     } else {
       setLoading(false);
     }
+
+    // Subscribe to session expiration events (e.g. 401 intercepted in api client)
+    const unsubscribe = tokenStorage.onAuthExpired(() => {
+      setUser(null);
+      setLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const login = async (access_token: string, refresh_token: string) => {
-    localStorage.setItem("access_token", access_token);
-    localStorage.setItem("refresh_token", refresh_token);
+    tokenStorage.setTokens(access_token, refresh_token);
     await fetchUserMe();
   };
 
   const logout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    tokenStorage.clearTokens();
     setUser(null);
   };
 

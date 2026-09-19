@@ -1,3 +1,2 @@
-// Eduvia — analytics feature (Phase stub)
-export {}
-
+// Eduvia - analytics feature
+export {};

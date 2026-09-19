@@ -2,17 +2,17 @@
 Eduvia Backend
 FastAPI application entry point.
 """
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
-from app.api.v1.router import api_router
 from app.database.session import create_db_engine, dispose_db_engine
 
 logger = structlog.get_logger(__name__)

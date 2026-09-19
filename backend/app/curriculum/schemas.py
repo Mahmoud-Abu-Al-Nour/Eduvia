@@ -1,4 +1,3 @@
-from typing import Dict, List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -6,16 +5,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class LocalizedString(BaseModel):
     """Pragmatic localization structure: dict containing language codes as keys."""
-    en: Optional[str] = None
-    ar: Optional[str] = None
-    
+    en: str | None = None
+    ar: str | None = None
+
     # Allow arbitrary other languages if needed
     model_config = ConfigDict(extra="allow")
 
 
 class CurriculumBase(BaseModel):
-    title: Dict[str, str] = Field(..., description="Localized titles")
-    description: Optional[Dict[str, str]] = None
+    title: dict[str, str] = Field(..., description="Localized titles")
+    description: dict[str, str] | None = None
     version: str = "1.0.0"
     is_active: bool = True
 
@@ -23,25 +22,25 @@ class CurriculumCreate(CurriculumBase):
     pass
 
 class CurriculumUpdate(CurriculumBase):
-    title: Optional[Dict[str, str]] = None
+    title: dict[str, str] | None = None
 
 class CurriculumResponse(CurriculumBase):
     id: UUID
-    created_by_id: Optional[UUID]
+    created_by_id: UUID | None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class SubjectBase(BaseModel):
-    title: Dict[str, str] = Field(..., description="Localized titles")
-    description: Optional[Dict[str, str]] = None
+    title: dict[str, str] = Field(..., description="Localized titles")
+    description: dict[str, str] | None = None
     order_index: int = 0
 
 class SubjectCreate(SubjectBase):
     pass
 
 class SubjectUpdate(SubjectBase):
-    title: Optional[Dict[str, str]] = None
+    title: dict[str, str] | None = None
 
 class SubjectResponse(SubjectBase):
     id: UUID
@@ -51,15 +50,15 @@ class SubjectResponse(SubjectBase):
 
 
 class UnitBase(BaseModel):
-    title: Dict[str, str] = Field(..., description="Localized titles")
-    description: Optional[Dict[str, str]] = None
+    title: dict[str, str] = Field(..., description="Localized titles")
+    description: dict[str, str] | None = None
     order_index: int = 0
 
 class UnitCreate(UnitBase):
     pass
 
 class UnitUpdate(UnitBase):
-    title: Optional[Dict[str, str]] = None
+    title: dict[str, str] | None = None
 
 class UnitResponse(UnitBase):
     id: UUID
@@ -69,15 +68,15 @@ class UnitResponse(UnitBase):
 
 
 class LessonBase(BaseModel):
-    title: Dict[str, str] = Field(..., description="Localized titles")
-    description: Optional[Dict[str, str]] = None
+    title: dict[str, str] = Field(..., description="Localized titles")
+    description: dict[str, str] | None = None
     order_index: int = 0
 
 class LessonCreate(LessonBase):
     pass
 
 class LessonUpdate(LessonBase):
-    title: Optional[Dict[str, str]] = None
+    title: dict[str, str] | None = None
 
 class LessonResponse(LessonBase):
     id: UUID
@@ -87,18 +86,18 @@ class LessonResponse(LessonBase):
 
 
 class AssessmentCriteria(BaseModel):
-    minimum_accuracy: Optional[float] = Field(None, ge=0.0, le=1.0)
-    maximum_assistance_level: Optional[int] = Field(None, ge=0, le=3)
-    required_completion: Optional[bool] = None
-    
+    minimum_accuracy: float | None = Field(None, ge=0.0, le=1.0)
+    maximum_assistance_level: int | None = Field(None, ge=0, le=3)
+    required_completion: bool | None = None
+
     model_config = ConfigDict(extra="allow")
 
 
 class LearningObjectiveBase(BaseModel):
-    title: Dict[str, str] = Field(..., description="Localized titles")
-    description: Optional[Dict[str, str]] = None
+    title: dict[str, str] = Field(..., description="Localized titles")
+    description: dict[str, str] | None = None
     difficulty_level: int = Field(1, ge=1, le=5)
-    assessment_criteria: Optional[Dict] = None
+    assessment_criteria: dict | None = None
     order_index: int = 0
     is_active: bool = True
 
@@ -106,25 +105,25 @@ class LearningObjectiveCreate(LearningObjectiveBase):
     pass
 
 class LearningObjectiveUpdate(LearningObjectiveBase):
-    title: Optional[Dict[str, str]] = None
+    title: dict[str, str] | None = None
 
 class LearningObjectiveResponse(LearningObjectiveBase):
     id: UUID
     lesson_id: UUID
-    prerequisites: List["LearningObjectiveResponse"] = []
+    prerequisites: list["LearningObjectiveResponse"] = []
 
     model_config = ConfigDict(from_attributes=True)
 
 
 # Nested Responses for API
 class LessonWithObjectives(LessonResponse):
-    learning_objectives: List[LearningObjectiveResponse] = []
+    learning_objectives: list[LearningObjectiveResponse] = []
 
 class UnitWithLessons(UnitResponse):
-    lessons: List[LessonWithObjectives] = []
+    lessons: list[LessonWithObjectives] = []
 
 class SubjectWithUnits(SubjectResponse):
-    units: List[UnitWithLessons] = []
+    units: list[UnitWithLessons] = []
 
 class CurriculumWithSubjects(CurriculumResponse):
-    subjects: List[SubjectWithUnits] = []
+    subjects: list[SubjectWithUnits] = []

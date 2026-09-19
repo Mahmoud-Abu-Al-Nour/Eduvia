@@ -58,42 +58,84 @@ export interface AuthTokens {
   token_type: 'bearer'
 }
 
-// ── Learner Types ──────────────────────────────────────────────────────────
+// ── Learner & Profile Types (Phase 3) ──────────────────────────────────────
 
-export type AgeGroup = 'early_childhood' | 'childhood' | 'adolescent' | 'adult'
-export type CommunicationPreference = 'verbal' | 'visual' | 'augmentative' | 'mixed'
-export type LearningLevel = 'foundation' | 'developing' | 'emerging' | 'established'
+export type Modality = 'visual' | 'reading' | 'writing' | 'audio' | 'interactive'
 
-export interface Learner {
+export interface LearnerObservation {
   id: string
-  display_name: string
-  age_group: AgeGroup
-  learning_level: LearningLevel
-  communication_preference: CommunicationPreference
-  support_requirements: string[]
-  teacher_notes: string
-  is_active: boolean
+  timestamp: string
+  category: string
+  summary: string
+  context?: Record<string, any>
+  teacher_note?: string
+}
+
+export interface LearnerProfile {
+  id: string
+  learner_id: string
+  communication_preferences: {
+    primary_mode: string
+    receptive_preference: string[]
+    expressive_preference: string[]
+    notes?: string
+  }
+  current_skill_level: {
+    literacy_stage: string
+    numeracy_stage: string
+    attention_span_minutes: number
+    strengths: string[]
+    focus_areas: string[]
+  }
+  support_requirements: {
+    sensory_accommodations: string[]
+    pacing: string
+    guidance_level: string
+    frequent_breaks: boolean
+  }
+  teacher_constraints: {
+    max_session_duration_minutes: number
+    excluded_modalities: string[]
+    required_modalities: string[]
+    custom_guidelines?: string
+  }
+  teacher_notes?: string
+  teacher_overrides: {
+    lock_difficulty_level?: number | null
+    enforce_strategy?: string | null
+    manual_adjustments_active: boolean
+  }
+  modality_effectiveness: Record<string, { observed_count: number; engagement_rating?: string | null }>
+  strategy_effectiveness: Record<string, { observed_count: number; success_rate?: number | null }>
+  activity_type_effectiveness: Record<string, { observed_count: number; accuracy_average?: number | null }>
+  difficulty_tolerance: {
+    comfortable_difficulty_level: number
+    highest_successful_level: number
+    frustration_threshold_observed: string
+  }
+  assistance_requirements: {
+    prompt_dependence: string
+    most_effective_prompt_type: string
+  }
+  response_behavior: {
+    average_response_latency_seconds?: number | null
+    consistency_pattern: string
+  }
+  observations: LearnerObservation[]
   created_at: string
   updated_at: string
 }
 
-// ── Learner Profile Types ──────────────────────────────────────────────────
-
-export type Modality = 'visual' | 'reading' | 'writing' | 'audio' | 'interactive'
-
-export interface ModalityScore {
-  score: number          // 0.0 – 1.0
-  confidence: number     // 0.0 – 1.0
-  evidence_count: number
-}
-
-export interface LearnerProfile {
-  learner_id: string
-  modality_scores: Record<Modality, ModalityScore>
-  strategy_scores: Record<string, ModalityScore>
-  last_updated: string
-  total_activities_completed: number
-  exploration_phase: boolean
+export interface Learner {
+  id: string
+  name: string
+  age_group: string
+  learning_level: string
+  is_active: boolean
+  teacher_id?: string | null
+  created_at: string
+  updated_at: string
+  profile?: LearnerProfile
 }
 
 // ── Curriculum Types ───────────────────────────────────────────────────────

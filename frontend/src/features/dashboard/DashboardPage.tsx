@@ -1,11 +1,16 @@
 import React, { useState } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { BookOpen, Users, BarChart3, Settings, LogOut } from "lucide-react";
+import { BookOpen, Users, BarChart3, LogOut } from "lucide-react";
 import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
+import { LearnerManager } from "@/features/learners/LearnerManager";
 
-export const DashboardPage: React.FC = () => {
+interface DashboardPageProps {
+  initialTab?: string;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "overview" }) => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -105,12 +110,8 @@ export const DashboardPage: React.FC = () => {
           )}
           
           {activeTab === "learners" && (
-            <div className="max-w-4xl">
-              <div className="bg-white p-12 rounded-2xl shadow-sm border border-gray-100 text-center">
-                <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No learners yet</h3>
-                <p className="text-gray-500 mb-6">Phase 3 will introduce Learner Profiles.</p>
-              </div>
+            <div className="max-w-6xl">
+              <LearnerManager />
             </div>
           )}
         </div>

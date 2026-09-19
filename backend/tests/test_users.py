@@ -1,8 +1,7 @@
 import pytest
-from pydantic import ValidationError
-
 from app.users.models import UserRole
 from app.users.schemas import UserCreate, UserUpdate
+from pydantic import ValidationError
 
 
 def test_user_create_schema_valid() -> None:
@@ -47,7 +46,7 @@ def test_user_update_schema() -> None:
     update1 = UserUpdate(full_name="Bob Admin")
     assert update1.full_name == "Bob Admin"
     assert update1.email is None
-    
+
     # Update multiple fields
     update2 = UserUpdate(
         email="new@eduvia.app",

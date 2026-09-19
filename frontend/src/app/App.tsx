@@ -30,6 +30,9 @@ function App() {
       
       <Route element={<ProtectedRoute allowedRoles={["admin", "teacher"]} />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/curriculum" element={<DashboardPage initialTab="curriculum" />} />
+        <Route path="/learners" element={<DashboardPage initialTab="learners" />} />
+        <Route path="/learners/:id" element={<DashboardPage initialTab="learners" />} />
       </Route>
       
       {/* Future routes will be added here as phases are implemented */}

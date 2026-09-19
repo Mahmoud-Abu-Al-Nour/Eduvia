@@ -58,5 +58,5 @@ async def update_user_me(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User with this email already exists.",
             )
-    
+
     return await user_service.update(db_obj=current_user, user_in=user_in)
