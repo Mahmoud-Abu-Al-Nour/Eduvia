@@ -1,13 +1,16 @@
 """
 Eduvia — Gemini LLM Provider
 
-Concrete implementation of LLMProvider using Google Gemini API.
+Concrete implementation of LLMProvider using the modern Google GenAI SDK (google-genai).
 API key is loaded exclusively from environment configuration.
 No keys are ever hardcoded here.
 
 IMPORTANT: This class must never be instantiated directly in
 business logic. Use the AIOrchestrator instead.
 """
+from __future__ import annotations
+
+import asyncio
 import json
 from typing import Any
 
@@ -25,28 +28,28 @@ from app.core.errors import AIProviderError
 
 logger = structlog.get_logger(__name__)
 
-# Lazy import to avoid import-time failures when key is not yet set
-_google_genai: Any = None
+# Lazy import cache
+_google_genai_module: Any = None
 
 
 def _get_genai() -> Any:
-    """Lazily import google.generativeai."""
-    global _google_genai
-    if _google_genai is None:
+    """Lazily import google.genai."""
+    global _google_genai_module
+    if _google_genai_module is None:
         try:
-            import google.generativeai as genai  # type: ignore[import]
-            _google_genai = genai
+            from google import genai
+            _google_genai_module = genai
         except ImportError as e:
             raise AIProviderError(
-                "google-generativeai package is not installed. "
-                "Run: pip install google-generativeai"
+                "google-genai package is not installed. "
+                "Run: pip install google-genai"
             ) from e
-    return _google_genai
+    return _google_genai_module
 
 
 class GeminiProvider(LLMProvider):
     """
-    Google Gemini LLM provider implementation.
+    Google Gemini LLM provider implementation using google-genai SDK.
 
     Configuration is read entirely from app.core.config.settings.
     The API key must be set in the GEMINI_API_KEY environment variable.
@@ -54,11 +57,13 @@ class GeminiProvider(LLMProvider):
     Supports:
     - Text generation
     - Structured (JSON) generation for activity schemas
-    - Health checks
+    - Vector embeddings generation (text-embedding-004)
+    - Health checks with robust error normalization
     """
 
     def __init__(self, api_key: str | None = None) -> None:
         self._model_name = settings.GEMINI_MODEL
+        self._embedding_model = settings.GEMINI_EMBEDDING_MODEL
         # Allow explicit key injection (useful for testing without env hacks)
         self._api_key = api_key if api_key is not None else settings.GEMINI_API_KEY
         self._client: Any | None = None
@@ -77,7 +82,7 @@ class GeminiProvider(LLMProvider):
         )
 
     def _get_client(self) -> Any:
-        """Get or create the Gemini generative model client."""
+        """Get or create the Google GenAI client."""
         if not self.is_available:
             raise AIProviderError(
                 "Gemini API key is not configured. "
@@ -85,16 +90,12 @@ class GeminiProvider(LLMProvider):
             )
         if self._client is None:
             genai = _get_genai()
-            genai.configure(api_key=self._api_key)
-            self._client = genai.GenerativeModel(self._model_name)
+            self._client = genai.Client(api_key=self._api_key)
         return self._client
 
     def _build_prompt(self, messages: list[Message]) -> str:
         """
-        Convert our Message list into a single prompt string for Gemini.
-
-        For Phase 0 we use a simple concatenation approach.
-        Phase 9 will implement proper multi-turn conversation.
+        Convert our Message list into a single structured prompt string.
         """
         parts = []
         for msg in messages:
@@ -106,27 +107,15 @@ class GeminiProvider(LLMProvider):
                 parts.append(f"[Assistant]\n{msg.content}")
         return "\n\n".join(parts)
 
-    def _build_generation_config(self, config: GenerationConfig) -> dict[str, Any]:
-        """Map our GenerationConfig to Gemini's generation_config format."""
-        cfg: dict[str, Any] = {
-            "temperature": config.temperature,
-            "max_output_tokens": config.max_tokens,
-            "top_p": config.top_p,
-        }
-        if config.stop_sequences:
-            cfg["stop_sequences"] = config.stop_sequences
-        return cfg
-
     async def generate(
         self,
         messages: list[Message],
         config: GenerationConfig | None = None,
     ) -> LLMResponse:
-        """Generate a text response from Gemini."""
+        """Generate a text response from Gemini via google-genai."""
         cfg = config or GenerationConfig()
         client = self._get_client()
         prompt = self._build_prompt(messages)
-        gen_cfg = self._build_generation_config(cfg)
 
         try:
             logger.debug(
@@ -136,23 +125,37 @@ class GeminiProvider(LLMProvider):
                 temperature=cfg.temperature,
             )
 
-            # Note: google-generativeai is synchronous; wrap in thread executor
-            # for async compatibility. Full async support added in later phase.
-            import asyncio
-            response = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: client.generate_content(
-                    prompt,
-                    generation_config=gen_cfg,
-                ),
+            from google.genai import types
+
+            gen_config = types.GenerateContentConfig(
+                temperature=cfg.temperature,
+                max_output_tokens=cfg.max_tokens,
+                top_p=cfg.top_p,
+                stop_sequences=cfg.stop_sequences if cfg.stop_sequences else None,
             )
 
-            content = response.text
+            # Support both async aio client and synchronous/mocked client
+            if hasattr(client, "aio") and hasattr(client.aio, "models"):
+                resp = await client.aio.models.generate_content(
+                    model=self._model_name,
+                    contents=prompt,
+                    config=gen_config,
+                )
+            else:
+                resp = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: client.models.generate_content(
+                        model=self._model_name,
+                        contents=prompt,
+                        config=gen_config,
+                    ),
+                )
+
+            content = resp.text or ""
             usage: dict[str, int] = {}
 
-            # Extract token usage if available
-            if hasattr(response, "usage_metadata") and response.usage_metadata:
-                meta = response.usage_metadata
+            if hasattr(resp, "usage_metadata") and resp.usage_metadata:
+                meta = resp.usage_metadata
                 usage = {
                     "input_tokens": getattr(meta, "prompt_token_count", 0),
                     "output_tokens": getattr(meta, "candidates_token_count", 0),
@@ -195,7 +198,6 @@ class GeminiProvider(LLMProvider):
             f"Do not include any text before or after the JSON."
         )
 
-        # Append schema instruction to the last user message
         augmented_messages = list(messages)
         if augmented_messages and augmented_messages[-1].role == MessageRole.USER:
             last = augmented_messages[-1]
@@ -204,13 +206,12 @@ class GeminiProvider(LLMProvider):
                 content=last.content + schema_instruction,
             )
         else:
-            from app.ai.providers.base import Message as Msg
             augmented_messages.append(
-                Msg(role=MessageRole.USER, content=schema_instruction)
+                Message(role=MessageRole.USER, content=schema_instruction)
             )
 
         json_config = GenerationConfig(
-            temperature=0.3,  # Lower temperature for structured output
+            temperature=0.3,
             max_tokens=config.max_tokens if config else 2048,
             response_format="json",
         )
@@ -218,11 +219,16 @@ class GeminiProvider(LLMProvider):
         response = await self.generate(augmented_messages, json_config)
 
         try:
-            # Extract JSON from response, handling possible markdown code blocks
             content = response.content.strip()
             if content.startswith("```"):
                 lines = content.split("\n")
-                content = "\n".join(lines[1:-1])  # Remove ``` markers
+                # Remove ```json or ``` opening and closing ```
+                first_line_end = 1
+                if lines[0].startswith("```"):
+                    lines = lines[first_line_end:]
+                if lines and lines[-1].strip() == "```":
+                    lines = lines[:-1]
+                content = "\n".join(lines).strip()
 
             return dict(json.loads(content))
         except json.JSONDecodeError as e:
@@ -234,6 +240,59 @@ class GeminiProvider(LLMProvider):
             raise AIProviderError(
                 f"Failed to parse Gemini structured response as JSON: {e}"
             ) from e
+
+    async def embed_text(self, texts: list[str]) -> list[list[float]]:
+        """
+        Generate vector embeddings using Google GenAI embedding model.
+
+        Args:
+            texts: List of text strings to embed.
+
+        Returns:
+            List of float embedding vectors (768 dimensions for text-embedding-004).
+        """
+        if not texts:
+            return []
+
+        client = self._get_client()
+        try:
+            logger.debug(
+                "gemini_embed_request",
+                model=self._embedding_model,
+                passage_count=len(texts),
+            )
+
+            if hasattr(client, "aio") and hasattr(client.aio, "models"):
+                resp = await client.aio.models.embed_content(
+                    model=self._embedding_model,
+                    contents=texts,
+                )
+            else:
+                resp = await asyncio.get_event_loop().run_in_executor(
+                    None,
+                    lambda: client.models.embed_content(
+                        model=self._embedding_model,
+                        contents=texts,
+                    ),
+                )
+
+            embeddings: list[list[float]] = []
+            if hasattr(resp, "embeddings") and resp.embeddings:
+                for item in resp.embeddings:
+                    embeddings.append(list(item.values))
+
+            logger.debug(
+                "gemini_embed_response",
+                model=self._embedding_model,
+                generated_count=len(embeddings),
+            )
+            return embeddings
+
+        except AIProviderError:
+            raise
+        except Exception as e:
+            logger.error("gemini_embed_error", error=str(e))
+            raise AIProviderError(f"Gemini embedding generation failed: {e}") from e
 
     async def health_check(self) -> bool:
         """Verify Gemini API connectivity with a minimal generation call."""
@@ -250,3 +309,4 @@ class GeminiProvider(LLMProvider):
         except Exception as e:
             logger.warning("gemini_health_check_failed", error=str(e))
             return False
+

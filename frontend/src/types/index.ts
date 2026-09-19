@@ -303,6 +303,24 @@ export interface Activity {
   created_at?: string
 }
 
+export interface GroundingSource {
+  chunk_id: string
+  title: string
+  source: string
+  category: string
+  score?: number
+  excerpt?: string
+}
+
+export interface ActivityGenerateResponse {
+  activity: Activity
+  fallback_used: boolean
+  generation_source: string
+  learner_id?: string | null
+  objective_id: string
+  grounding_sources?: GroundingSource[]
+}
+
 // ── Phase 5: Submission & Interaction Types ─────────────────────────────────
 
 export interface MultipleChoiceSubmission {

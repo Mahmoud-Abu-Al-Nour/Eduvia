@@ -151,6 +151,24 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
+    async def embed_text(self, texts: list[str]) -> list[list[float]]:
+        """
+        Generate vector embeddings for a list of text strings.
+
+        Used for RAG knowledge ingestion and semantic retrieval.
+
+        Args:
+            texts: List of text passages to embed.
+
+        Returns:
+            List of embedding vectors (float lists).
+
+        Raises:
+            AIProviderError: If embedding generation fails.
+        """
+        ...
+
+    @abstractmethod
     async def health_check(self) -> bool:
         """
         Verify the provider is operational.
@@ -159,3 +177,4 @@ class LLMProvider(ABC):
             True if the provider is reachable and functional.
         """
         ...
+

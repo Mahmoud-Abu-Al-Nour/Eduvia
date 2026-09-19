@@ -127,6 +127,20 @@ class AIOrchestrator:
 
         return await self._provider.generate_structured(messages, output_schema, config)
 
+    async def embed_text(self, texts: list[str]) -> list[list[float]]:
+        """
+        Generate vector embeddings using the active provider.
+
+        Args:
+            texts: Passages of text to embed.
+
+        Returns:
+            List of float embedding vectors.
+        """
+        if not self.is_available:
+            raise AIProviderError("AI provider is not configured.")
+        return await self._provider.embed_text(texts)
+
     async def health_check(self) -> dict[str, Any]:
         """
         Check the health of the AI subsystem.

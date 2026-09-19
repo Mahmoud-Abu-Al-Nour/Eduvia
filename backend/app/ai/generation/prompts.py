@@ -25,6 +25,7 @@ def build_activity_generation_messages(
     assessment_criteria: dict[str, Any] | None = None,
     learner_context: dict[str, Any] | None = None,
     language: str = "en",
+    grounding_chunks: list[Any] | None = None,
 ) -> list[Message]:
     """
     Construct system and user messages for structured activity generation.
@@ -41,6 +42,23 @@ def build_activity_generation_messages(
         "4. Scaffolding: Provide 2 to 3 graded hints (Hint 1: gentle nudge; Hint 2: specific clue; Hint 3: direct guidance).\n"
         "5. Language: All learner-facing text (title, instructions, prompts, options, explanation) must be in the specified language.\n"
     )
+
+    # If RAG grounding chunks are available, inject them as verified pedagogical knowledge
+    if grounding_chunks:
+        passages = []
+        for i, chunk in enumerate(grounding_chunks, 1):
+            title = getattr(chunk, "document_title", None) or (chunk.get("document_title") if isinstance(chunk, dict) else "Pedagogical Guide")
+            source = getattr(chunk, "source", None) or (chunk.get("source") if isinstance(chunk, dict) else "source.md")
+            content = getattr(chunk, "content", None) or (chunk.get("content") if isinstance(chunk, dict) else str(chunk))
+            passages.append(f"[Source {i}: {title} ({source})]\n{content.strip()}")
+
+        system_prompt += (
+            "\nVERIFIED PEDAGOGICAL KNOWLEDGE (Grounding Context):\n"
+            "Ground your instructional design strictly in the following evidence-based principles:\n"
+            + "\n\n".join(passages)
+            + "\n"
+        )
+
 
     # Format learner profile context safely if provided
     learner_notes = ""

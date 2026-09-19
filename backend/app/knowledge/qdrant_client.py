@@ -159,6 +159,167 @@ class EduViaQdrantClient:
                         f"Failed to create collection '{collection_name}': {e}"
                     ) from e
 
+    async def upsert_points(
+        self,
+        collection_name: str,
+        points: list[dict[str, Any]],
+    ) -> int:
+        """
+        Upsert a batch of vector points into the specified collection.
+
+        Args:
+            collection_name: Target Qdrant collection.
+            points: List of dicts with keys 'id', 'vector', and 'payload'.
+
+        Returns:
+            Number of points successfully upserted.
+        """
+        if not points:
+            return 0
+
+        import asyncio
+        from qdrant_client.models import PointStruct
+
+        client = self._get_client()
+        point_structs = [
+            PointStruct(
+                id=p["id"],
+                vector=p["vector"],
+                payload=p.get("payload", {}),
+            )
+            for p in points
+        ]
+
+        try:
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.upsert(
+                    collection_name=collection_name,
+                    points=point_structs,
+                ),
+            )
+            logger.info(
+                "qdrant_points_upserted",
+                collection=collection_name,
+                count=len(point_structs),
+            )
+            return len(point_structs)
+        except Exception as e:
+            logger.error(
+                "qdrant_upsert_error",
+                collection=collection_name,
+                error=str(e),
+            )
+            raise QdrantClientError(
+                f"Failed to upsert points into '{collection_name}': {e}"
+            ) from e
+
+    async def search(
+        self,
+        collection_name: str,
+        query_vector: list[float],
+        limit: int = 3,
+        score_threshold: float = 0.0,
+        category_filter: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Perform semantic similarity search against the vector collection.
+
+        Args:
+            collection_name: Target collection.
+            query_vector: Query embedding vector.
+            limit: Maximum top-k results.
+            score_threshold: Minimum cosine similarity score.
+            category_filter: Optional metadata category filter.
+
+        Returns:
+            List of dicts with 'id', 'score', and 'payload'.
+        """
+        import asyncio
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+        try:
+            client = self._get_client()
+
+            query_filter = None
+            if category_filter:
+                query_filter = Filter(
+                    must=[
+                        FieldCondition(
+                            key="category",
+                            match=MatchValue(value=category_filter),
+                        )
+                    ]
+                )
+
+            threshold = score_threshold if score_threshold > 0.0 else None
+
+            response = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.query_points(
+                    collection_name=collection_name,
+                    query=query_vector,
+                    query_filter=query_filter,
+                    limit=limit,
+                    score_threshold=threshold,
+                ),
+            )
+
+            results: list[dict[str, Any]] = []
+            for point in response.points:
+                results.append(
+                    {
+                        "id": str(point.id),
+                        "score": float(point.score) if point.score is not None else 0.0,
+                        "payload": dict(point.payload) if point.payload else {},
+                    }
+                )
+
+            logger.debug(
+                "qdrant_search_completed",
+                collection=collection_name,
+                matches=len(results),
+            )
+            return results
+
+        except Exception as e:
+            logger.warning(
+                "qdrant_search_failed_gracefully",
+                collection=collection_name,
+                error=str(e),
+            )
+            return []
+
+    async def count(self, collection_name: str) -> int:
+        """Return the number of points in the collection."""
+        import asyncio
+
+        try:
+            client = self._get_client()
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.count(collection_name=collection_name),
+            )
+            return int(result.count)
+        except Exception as e:
+            logger.warning("qdrant_count_error", collection=collection_name, error=str(e))
+            return 0
+
+    async def delete_collection(self, collection_name: str) -> bool:
+        """Delete a collection (primarily used in tests)."""
+        import asyncio
+
+        try:
+            client = self._get_client()
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: client.delete_collection(collection_name=collection_name),
+            )
+            return True
+        except Exception as e:
+            logger.warning("qdrant_delete_collection_error", collection=collection_name, error=str(e))
+            return False
+
 
 @lru_cache(maxsize=1)
 def get_qdrant_client() -> EduViaQdrantClient:

@@ -542,6 +542,16 @@ class MockActivityService:
             generation_source="dev_mock_engine",
             learner_id=request.learner_id,
             objective_id=oid,
+            grounding_sources=[
+                {
+                    "chunk_id": "mock-rag-01",
+                    "title": "Teaching Strategies for SEN",
+                    "source": "teaching_strategies.md",
+                    "category": "strategy",
+                    "score": 0.88,
+                    "excerpt": "Break tasks into small, manageable sequential steps with immediate reinforcement.",
+                }
+            ],
         )
 
     async def get_activity(self, activity_id: uuid.UUID) -> Activity | None:

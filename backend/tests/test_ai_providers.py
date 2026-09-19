@@ -6,7 +6,7 @@ making real API calls. All Gemini calls are mocked.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.ai.providers.base import (
@@ -81,10 +81,68 @@ class TestGeminiProvider:
     @pytest.mark.asyncio
     async def test_gemini_health_check_returns_false_without_key(self) -> None:
         """Health check should return False when API key is not configured."""
-        # Inject a placeholder key — health check should return False
         provider = GeminiProvider(api_key="CHANGE_ME_KEY")
         result = await provider.health_check()
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_gemini_embed_empty_texts_returns_empty(self) -> None:
+        """embed_text with empty list should return empty list immediately."""
+        provider = GeminiProvider(api_key="valid-test-key")
+        result = await provider.embed_text([])
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_gemini_embed_text_with_mock_client(self) -> None:
+        """embed_text should extract float vectors from client response."""
+        provider = GeminiProvider(api_key="valid-test-key")
+
+        mock_emb1 = MagicMock()
+        mock_emb1.values = [0.1, 0.2, 0.3]
+        mock_resp = MagicMock()
+        mock_resp.embeddings = [mock_emb1]
+
+        mock_client = MagicMock()
+        mock_client.aio.models.embed_content = AsyncMock(return_value=mock_resp)
+        provider._client = mock_client
+
+        vectors = await provider.embed_text(["Hello world"])
+        assert len(vectors) == 1
+        assert vectors[0] == [0.1, 0.2, 0.3]
+
+    @pytest.mark.asyncio
+    async def test_gemini_generate_structured_parses_json_fenced(self) -> None:
+        """generate_structured should parse markdown code block json."""
+        provider = GeminiProvider(api_key="valid-test-key")
+
+        mock_resp = MagicMock()
+        mock_resp.text = "```json\n{\"title\": \"Counting\", \"count\": 5}\n```"
+        mock_resp.usage_metadata = MagicMock(prompt_token_count=10, candidates_token_count=20)
+
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(return_value=mock_resp)
+        provider._client = mock_client
+
+        data = await provider.generate_structured(
+            messages=[Message(role=MessageRole.USER, content="Generate activity")],
+            output_schema={"type": "object"},
+        )
+        assert data == {"title": "Counting", "count": 5}
+
+    @pytest.mark.asyncio
+    async def test_gemini_generate_raises_ai_provider_error_on_failure(self) -> None:
+        """generate should wrap exceptions into AIProviderError."""
+        from app.core.errors import AIProviderError
+
+        provider = GeminiProvider(api_key="valid-test-key")
+        mock_client = MagicMock()
+        mock_client.aio.models.generate_content = AsyncMock(side_effect=RuntimeError("API Network Timeout"))
+        provider._client = mock_client
+
+        with pytest.raises(AIProviderError, match="Gemini generation failed"):
+            await provider.generate(
+                messages=[Message(role=MessageRole.USER, content="Hello")]
+            )
 
 
 class TestAIOrchestrator:
@@ -120,3 +178,19 @@ class TestAIOrchestrator:
             await orchestrator.generate(
                 messages=[Message(role=MessageRole.USER, content="test")]
             )
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_embed_text_delegates_to_provider(self) -> None:
+        """Orchestrator embed_text should call provider embed_text."""
+        from app.ai.orchestrator.orchestrator import AIOrchestrator
+
+        mock_provider = MagicMock()
+        mock_provider.is_available = True
+        mock_provider.provider_name = "mock"
+        mock_provider.embed_text = AsyncMock(return_value=[[0.5] * 768])
+
+        orchestrator = AIOrchestrator(provider=mock_provider)
+        vectors = await orchestrator.embed_text(["sample text"])
+        assert len(vectors) == 1
+        assert len(vectors[0]) == 768
+

@@ -282,6 +282,10 @@ class ActivityGenerateResponse(BaseModel):
     )
     learner_id: uuid.UUID | None = Field(default=None)
     objective_id: uuid.UUID
+    grounding_sources: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Verified knowledge sources retrieved via RAG for pedagogical grounding",
+    )
 
 
 # ── Phase 5: Learner Submission Payloads ──────────────────────────────────────

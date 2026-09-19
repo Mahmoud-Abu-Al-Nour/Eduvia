@@ -150,8 +150,37 @@ class ActivityService:
         effective_difficulty = max(1, min(5, effective_difficulty))
 
         # 5. Attempt Generative Generation via AI Orchestrator
+        grounding_sources: list[dict[str, Any]] = []
         if self.orchestrator.is_available:
             try:
+                # Retrieve pedagogical context from RAG
+                grounding_chunks = []
+                try:
+                    from app.knowledge.retrieval import get_knowledge_retrieval_service
+                    retrieval_service = get_knowledge_retrieval_service()
+                    selected_strategy = None
+                    if learner_context and "teacher_overrides" in learner_context:
+                        selected_strategy = (learner_context["teacher_overrides"] or {}).get("preferred_strategy")
+
+                    grounding_chunks = await retrieval_service.retrieve_pedagogical_context(
+                        query=f"{objective_title} {objective_desc or ''}".strip(),
+                        strategy=selected_strategy,
+                        top_k=3,
+                    )
+                    for c in grounding_chunks:
+                        grounding_sources.append(
+                            {
+                                "chunk_id": c.chunk_id,
+                                "title": c.document_title,
+                                "source": c.source,
+                                "category": c.category,
+                                "score": c.score,
+                                "excerpt": c.content[:200],
+                            }
+                        )
+                except Exception as rag_err:
+                    logger.warning("rag_retrieval_skipped_in_generation", error=str(rag_err))
+
                 messages = build_activity_generation_messages(
                     objective_title=objective_title,
                     objective_description=objective_desc,
@@ -160,6 +189,7 @@ class ActivityService:
                     assessment_criteria=objective.assessment_criteria,
                     learner_context=learner_context,
                     language=request.language,
+                    grounding_chunks=grounding_chunks,
                 )
 
                 # Generate structured output conforming to Activity JSON schema
@@ -187,6 +217,7 @@ class ActivityService:
                     activity_id=str(activity.id),
                     activity_type=activity.activity_type.value,
                     source=self.orchestrator.provider.provider_name,
+                    grounding_sources_count=len(grounding_sources),
                 )
 
                 return ActivityGenerateResponse(
@@ -195,6 +226,7 @@ class ActivityService:
                     generation_source=self.orchestrator.provider.provider_name,
                     learner_id=request.learner_id,
                     objective_id=request.objective_id,
+                    grounding_sources=grounding_sources,
                 )
 
             except (PydanticValidationError, Exception) as exc:
@@ -228,6 +260,7 @@ class ActivityService:
             generation_source="deterministic_fallback",
             learner_id=request.learner_id,
             objective_id=request.objective_id,
+            grounding_sources=[],
         )
 
     async def get_activity(self, activity_id: uuid.UUID) -> Activity | None:

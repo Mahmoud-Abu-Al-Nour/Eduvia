@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # ── AI Provider (Gemini) ──────────────────────────────────────────
     GEMINI_API_KEY: str
     GEMINI_MODEL: str = "gemini-2.0-flash-exp"
+    GEMINI_EMBEDDING_MODEL: str = "text-embedding-004"
 
     # ── JWT Authentication ────────────────────────────────────────────
     JWT_SECRET: str
@@ -59,6 +60,8 @@ class Settings(BaseSettings):
     # ── Knowledge Base ────────────────────────────────────────────────
     QDRANT_COLLECTION_KNOWLEDGE: str = "eduvia_knowledge"
     QDRANT_COLLECTION_CURRICULUM: str = "eduvia_curriculum"
+    RAG_TOP_K: int = 3
+    RAG_SCORE_THRESHOLD: float = 0.5
 
     @field_validator("DATABASE_URL")
     @classmethod
