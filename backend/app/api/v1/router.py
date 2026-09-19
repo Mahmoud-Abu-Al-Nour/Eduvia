@@ -12,6 +12,7 @@ from app.api.v1 import health
 from app.auth.router import router as auth_router
 from app.curriculum.router import router as curriculum_router
 from app.learners.router import router as learners_router
+from app.recommendations.router import router as recommendations_router
 from app.users.router import router as users_router
 
 api_router = APIRouter()
@@ -36,8 +37,9 @@ api_router.include_router(learners_router)
 # ── Activities (Phase 4 & 5) ──────────────────────────────────────────────────
 api_router.include_router(activities_router)
 
-# ── Analytics & Telemetry (Phase 6) ───────────────────────────────────────────
+# ── Analytics & Telemetry (Phase 6 & 7) ───────────────────────────────────────
 api_router.include_router(analytics_router)
 
-# ── Future routers (Phase 7+) ─────────────────────────────────────────────────
-# api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
+# ── Recommendations & Adaptive Learning (Phase 8) ─────────────────────────────
+api_router.include_router(recommendations_router)
+

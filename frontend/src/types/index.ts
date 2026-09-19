@@ -469,15 +469,39 @@ export interface LearnerProgressReport {
   data_points: ProgressDataPoint[]
 }
 
-// ── Recommendation Types ───────────────────────────────────────────────────
+// ── Recommendation & Adaptive Learning Types (Phase 8) ─────────────────────
 
-export interface Recommendation {
+export interface RecommendationDecision {
   learner_id: string
   objective_id: string
+  objective_title: string
+  lesson_id?: string | null
+  unit_id?: string | null
+  difficulty_level: number
   recommended_modality: Modality
-  recommended_strategy: TeachingStrategy
   recommended_activity_type: ActivityType
-  confidence: number
-  explanation: string
-  evidence_summary: string
+  recommended_strategy: TeachingStrategy
+  scaffolding_tier: number
+  rationale: string
+  confidence_level: 'high' | 'medium' | 'low'
+  confidence_score: number
+  evidence_event_count: number
+  applied_constraints: string[]
+  created_at: string
 }
+
+export interface AdaptiveNextActivityResponse {
+  decision: RecommendationDecision
+  activity: Activity
+  fallback_used: boolean
+  generation_source: string
+}
+
+export interface ProfileSyncResult {
+  learner_id: string
+  updated_modalities: Record<string, unknown>
+  updated_strategies: Record<string, unknown>
+  total_events_processed: number
+  synced_at: string
+}
+

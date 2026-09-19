@@ -1,9 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { BookOpen, Users, BarChart3, LogOut, PlayCircle, TrendingUp } from "lucide-react";
+import { BookOpen, Users, BarChart3, LogOut, PlayCircle, TrendingUp, Sparkles } from "lucide-react";
 import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
 import { LearnerManager } from "@/features/learners/LearnerManager";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
+import { RecommendationCard } from "@/features/recommendations";
+import { recommendationsApi } from "@/services/api";
+import api from "@/services/api";
+import type { Learner, RecommendationDecision } from "@/types";
 
 
 interface DashboardPageProps {
@@ -13,6 +17,57 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "overview" }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  const [learners, setLearners] = useState<Learner[]>([]);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string>("");
+  const [loadingLearners, setLoadingLearners] = useState<boolean>(false);
+  const [recommendation, setRecommendation] = useState<RecommendationDecision | null>(null);
+  const [loadingRec, setLoadingRec] = useState<boolean>(false);
+  const [recError, setRecError] = useState<string | null>(null);
+
+  // Fetch learners when tab is recommendations
+  useEffect(() => {
+    const fetchLearners = async () => {
+      try {
+        setLoadingLearners(true);
+        const data = await api.get<Learner[]>("/learners");
+        setLearners(data);
+        if (data.length > 0 && !selectedLearnerId) {
+          setSelectedLearnerId(data[0].id);
+        }
+      } catch (err: any) {
+        console.error("Failed to load learners for adaptive engine:", err);
+      } finally {
+        setLoadingLearners(false);
+      }
+    };
+    if (activeTab === "recommendations" && learners.length === 0) {
+      void fetchLearners();
+    }
+  }, [activeTab, learners.length, selectedLearnerId]);
+
+  // Fetch recommendation when selected learner changes or tab becomes recommendations
+  const fetchRecommendation = async (learnerId: string) => {
+    if (!learnerId) return;
+    try {
+      setLoadingRec(true);
+      setRecError(null);
+      const res = await recommendationsApi.getRecommendation(learnerId);
+      setRecommendation(res);
+    } catch (err: any) {
+      console.error("Failed to fetch recommendation:", err);
+      setRecError(err?.message || "Failed to retrieve adaptive recommendation.");
+      setRecommendation(null);
+    } finally {
+      setLoadingRec(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "recommendations" && selectedLearnerId) {
+      void fetchRecommendation(selectedLearnerId);
+    }
+  }, [activeTab, selectedLearnerId]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -69,6 +124,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           >
             <TrendingUp className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-blue-700' : 'text-gray-400'}`} />
             Analytics & Mastery
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); setActiveTab("recommendations"); }}
+            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'recommendations' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <Sparkles className={`w-5 h-5 mr-3 ${activeTab === 'recommendations' ? 'text-blue-700' : 'text-gray-400'}`} />
+            Adaptive Engine
           </a>
         </nav>
 
@@ -185,6 +249,66 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           {activeTab === "analytics" && (
             <div className="max-w-6xl">
               <AnalyticsDashboard />
+            </div>
+          )}
+
+          {activeTab === "recommendations" && (
+            <div className="max-w-4xl space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                    Adaptive Learning Intelligence Engine
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Deterministic curriculum sequencing, difficulty calibration, and modality optimization.
+                  </p>
+                </div>
+                {learners.length > 0 && (
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="learner-select" className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                      Select Learner:
+                    </label>
+                    <select
+                      id="learner-select"
+                      value={selectedLearnerId}
+                      onChange={(e) => setSelectedLearnerId(e.target.value)}
+                      className="rounded-xl border-gray-300 shadow-sm text-sm font-medium py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-gray-900"
+                    >
+                      {learners.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name} ({l.learning_level})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {loadingLearners ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
+                  <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3" />
+                  <p className="text-sm text-gray-600">Loading learners...</p>
+                </div>
+              ) : learners.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
+                  <p className="text-sm text-gray-600">No learners found in your classroom.</p>
+                </div>
+              ) : (
+                <>
+                  {recError && (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                      {recError}
+                    </div>
+                  )}
+                  <RecommendationCard
+                    learnerId={selectedLearnerId}
+                    recommendation={recommendation}
+                    loading={loadingRec}
+                    onProfileSynced={() => fetchRecommendation(selectedLearnerId)}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>

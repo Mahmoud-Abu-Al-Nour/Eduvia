@@ -1,1 +1,5 @@
-﻿# Eduvia -- ai.adaptation module (Phase 0 stub)
+"""Eduvia — AI Adaptation Module (Phase 8)."""
+
+from app.ai.adaptation.engine import AdaptationEngine
+
+__all__ = ["AdaptationEngine"]

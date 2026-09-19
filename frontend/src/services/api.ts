@@ -226,6 +226,27 @@ export const analyticsApi = {
     }),
 }
 
+/** Recommendations & Adaptive Learning API endpoints (Phase 8) */
+export const recommendationsApi = {
+  /** Get current adaptive recommendation for a learner */
+  getRecommendation: (learnerId: string, language: string = 'en') =>
+    get<import('@/types').RecommendationDecision>(`/recommendations/learners/${learnerId}`, {
+      params: { language },
+    }),
+
+  /** Get recommendation and generate next activity in a unified call */
+  getNextActivity: (learnerId: string, language: string = 'en') =>
+    post<import('@/types').AdaptiveNextActivityResponse>(
+      `/recommendations/learners/${learnerId}/next-activity`,
+      null,
+      { params: { language } }
+    ),
+
+  /** Synchronize learner profile modality and strategy effectiveness */
+  syncProfile: (learnerId: string) =>
+    post<import('@/types').ProfileSyncResult>(`/recommendations/learners/${learnerId}/sync-profile`),
+}
+
 export const api = {
   get,
   post,
@@ -235,8 +256,10 @@ export const api = {
   health: healthApi,
   activities: activitiesApi,
   analytics: analyticsApi,
+  recommendations: recommendationsApi,
   client: apiClient,
 }
 
 export default api
+
 

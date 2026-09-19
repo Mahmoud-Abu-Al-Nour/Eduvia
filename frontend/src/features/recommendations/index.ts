@@ -1,2 +1,1 @@
-// Eduvia - recommendations feature
-export {};
+export * from './RecommendationCard'

@@ -795,6 +795,98 @@ class MockAnalyticsService:
 
 _MOCK_ANALYTICS_INSTANCE = MockAnalyticsService()
 
+
+class MockRecommendationService:
+    """Mock RecommendationService for offline development."""
+
+    async def get_recommendation(
+        self,
+        learner_id: uuid.UUID,
+        current_user: User | None = None,
+        language: str = "en",
+    ) -> RecommendationDecision:
+        from app.ai.adaptation.engine import AdaptationEngine
+        from app.curriculum.models import LearningObjective
+
+        # Find learner profile
+        profile = None
+        for l in MOCK_LEARNERS:
+            if l.id == learner_id:
+                profile = l.profile
+                break
+
+        # Build candidate objectives from mock curriculum
+        candidate_objectives: list[LearningObjective] = []
+        for curr in MOCK_CURRICULUM:
+            for subj in curr.subjects:
+                for unit in subj.units:
+                    for lesson in unit.lessons:
+                        for obj in lesson.learning_objectives:
+                            candidate_objectives.append(obj)
+
+        if not candidate_objectives:
+            # Fallback dummy objective
+            dummy_obj = LearningObjective(
+                id=uuid.uuid4(),
+                title={"en": "Foundational Math Concept", "ar": "مفهوم رياضيات تأسيسي"},
+                difficulty_level=1,
+                is_active=True,
+                order_index=0,
+            )
+            candidate_objectives = [dummy_obj]
+
+        summary = await _MOCK_ANALYTICS_INSTANCE.get_learner_summary(learner_id)
+        mastery = await _MOCK_ANALYTICS_INSTANCE.get_learner_mastery(learner_id)
+
+        return AdaptationEngine.build_recommendation(
+            learner_id=learner_id,
+            candidate_objectives=candidate_objectives,
+            profile=profile,
+            mastery_report=mastery,
+            analytics_summary=summary,
+            language=language,
+        )
+
+    async def get_next_activity(
+        self,
+        learner_id: uuid.UUID,
+        current_user: User | None = None,
+        language: str = "en",
+    ) -> AdaptiveNextActivityResponse:
+        decision = await self.get_recommendation(learner_id, current_user, language=language)
+        activity_service = MockActivityService()
+        gen_req = ActivityGenerateRequest(
+            objective_id=decision.objective_id,
+            learner_id=learner_id,
+            activity_type=decision.recommended_activity_type,
+            difficulty_level=decision.difficulty_level,
+            language=language,
+        )
+        gen_resp = await activity_service.generate_activity(gen_req, current_user or User(id=uuid.uuid4(), email="dev@eduvia.org", hashed_password="", role=UserRole.teacher))
+        return AdaptiveNextActivityResponse(
+            decision=decision,
+            activity=gen_resp.activity,
+            fallback_used=gen_resp.fallback_used,
+            generation_source=gen_resp.generation_source,
+        )
+
+    async def sync_learner_profile_effectiveness(
+        self,
+        learner_id: uuid.UUID,
+        current_user: User | None = None,
+    ) -> ProfileSyncResult:
+        matching_events = [e for e in _MOCK_ANALYTICS_INSTANCE.events if e.learner_id == learner_id]
+        return ProfileSyncResult(
+            learner_id=learner_id,
+            updated_modalities={"Visual": {"observed_count": len(matching_events), "engagement_rating": 0.85}},
+            updated_strategies={"Step-by-Step": {"observed_count": len(matching_events), "success_rate": 0.80}},
+            total_events_processed=len(matching_events),
+        )
+
+
+_MOCK_RECOMMENDATION_INSTANCE = MockRecommendationService()
+
+
 # Patch dependency overrides on FastAPI app
 async def override_get_db_session() -> AsyncGenerator[AsyncMock, None]:
     yield AsyncMock()
@@ -814,12 +906,19 @@ from app.analytics.schemas import (
     PerformanceEventQueryFilter,
     ProgressDataPoint,
 )
+from app.recommendations.router import get_recommendation_service
+from app.recommendations.schemas import (
+    AdaptiveNextActivityResponse,
+    ProfileSyncResult,
+    RecommendationDecision,
+)
 
 app.dependency_overrides[get_db_session] = override_get_db_session
 app.dependency_overrides[get_curriculum_service] = lambda: MockCurriculumService()
 app.dependency_overrides[get_learner_service] = lambda: MockLearnerService()
 app.dependency_overrides[get_activity_service] = lambda: MockActivityService()
 app.dependency_overrides[get_analytics_service] = lambda: _MOCK_ANALYTICS_INSTANCE
+app.dependency_overrides[get_recommendation_service] = lambda: _MOCK_RECOMMENDATION_INSTANCE
 
 # Patch UserService where imported
 patch("app.auth.router.UserService", return_value=MockUserService()).start()
@@ -828,3 +927,4 @@ patch("app.auth.dependencies.UserService", return_value=MockUserService()).start
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+
