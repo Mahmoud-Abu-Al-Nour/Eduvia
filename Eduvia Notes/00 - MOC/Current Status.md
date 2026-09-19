@@ -1,7 +1,7 @@
 # Eduvia Current Status
 
 Last verified: **2026-09-19**  
-Repository Head: `origin/develop` (`a8fe793`)
+Repository Head: `origin/develop` (`69c9edb`)
 
 ---
 
@@ -19,16 +19,16 @@ Repository Head: `origin/develop` (`a8fe793`)
 | **Phase 7** | Learning Analytics & Mastery | **LOCKED** | Dynamic aggregations, modality breakdowns, deterministic mastery rubric, pedagogical independence, progress timeline, analytics dashboard (143 tests). |
 | **Phase 8** | Adaptive Learning Engine | **LOCKED** | Deterministic prerequisite traversal, teacher override precedence, difficulty calibration, modality optimization, unified activity generation (159 tests). |
 | **Phase 9** | Gemini Production & RAG Ingestion | **LOCKED** | Modern Google GenAI SDK, Qdrant vector infrastructure, knowledge ingestion pipeline, semantic retrieval, grounded generation (178 tests). |
-| **Phase 10**| Teacher Dashboard & Insights | **NOT STARTED** | Cohort management, IEP reporting, intervention alerts. |
+| **Phase 10**| Teacher Dashboard & Insights | **LOCKED** | Multi-tenant overview, classroom cohort analytics, deterministic intervention alerts, IEP progress reporting & multi-format export (192 tests). |
 | **Phase 11**| System Hardening & Accessibility Audit | **NOT STARTED** | Screen reader, switch device, high-contrast certification. |
 | **Phase 12**| Cloud Deployment & Staging | **NOT STARTED** | Google Cloud Run, Cloud SQL, Secret Manager. |
 
 ---
 
-## 🔍 Verification Highlights (Through Phase 9)
+## 🔍 Verification Highlights (Through Phase 10)
 
 ### 1. Test Suite Execution
-- **Backend Regression Suite**: **178/178 passing tests** (100% pass rate, 83% code coverage).
+- **Backend Regression Suite**: **192/192 passing tests** (100% pass rate, 84% code coverage).
   - Auth tests: `test_auth.py` (4 tests)
   - User tests: `test_users.py` (4 tests)
   - Curriculum tests: `test_curriculum.py` (3 tests)
@@ -44,11 +44,16 @@ Repository Head: `origin/develop` (`a8fe793`)
   - Knowledge Ingestion: `test_knowledge_ingestion.py` (5 tests)
   - Knowledge Retrieval: `test_knowledge_retrieval.py` (6 tests)
   - RAG Generation: `test_rag_generation.py` (3 tests)
+  - Teacher Dashboard & Insights: `test_teacher_dashboard.py` (14 tests)
 
 - **Frontend Production Build**: `npm run build` (`tsc -b && vite build`) succeeded with **0 errors**.
+- **Frontend Unit Tests**: 7/7 tests passing.
 - **Type Checking & Linting**: Clean across backend (`ruff`, `mypy`) and frontend (`tsc`).
 
 ### 2. Architectural Milestones Locked
+- **Teacher Dashboard & Cohort Intelligence**: Scoped multi-tenant analytics over assigned learners.
+- **Deterministic Intervention Alerts**: Rule-based educational alerts with strict non-diagnostic wording.
+- **IEP Progress Reporting**: Comprehensive longitudinal mastery reporting with Markdown, JSON, and print exports.
 - **Production Gemini SDK**: Modern `google-genai` SDK with zero deprecation warnings.
 - **RAG Knowledge Base**: Qdrant-backed semantic retrieval grounding activity generation in verified pedagogical literature.
 - **Deterministic Adaptive Engine**: Non-LLM adaptation engine traversing curriculum prerequisites, strictly respecting teacher locks and constraints.
@@ -56,12 +61,12 @@ Repository Head: `origin/develop` (`a8fe793`)
 - **Zero Speculative Tables**: Analytics and recommendations are derived dynamically from immutable events.
 - **Zero-Strand Guarantee**: Recommendation engine integrates with Phase 4 generation with deterministic fallbacks, including when Gemini or RAG is unavailable.
 - **Authoritative Backend Evaluation**: Server-side correctness verification.
-- **Teacher Multi-Tenancy**: Unassigned teachers receive 403 Forbidden across profiles, telemetry, analytics, and recommendations.
+- **Teacher Multi-Tenancy**: Unassigned teachers receive 403 Forbidden across profiles, telemetry, analytics, recommendations, and cohort dashboards.
 
 ---
 
 ## 🛑 Guardrails
-- **Phase 10 (Teacher Dashboard & Insights) has NOT been started.**
-- No cohort management, IEP reporting, or intervention alerting has been implemented.
+- **Phase 10 (Teacher Dashboard & Insights) is COMPLETE and LOCKED.**
+- **Phase 11 (System Hardening & Accessibility Audit) has NOT been started.**
 - Production working tree is completely verified.
 

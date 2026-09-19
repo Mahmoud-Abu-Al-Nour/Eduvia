@@ -899,6 +899,136 @@ class MockRecommendationService:
 _MOCK_RECOMMENDATION_INSTANCE = MockRecommendationService()
 
 
+class MockTeacherDashboardService:
+    """Mock TeacherDashboardService for offline development."""
+
+    async def get_dashboard_overview(self, teacher_user: User | None = None) -> TeacherDashboardOverview:
+        learners = list(in_memory_learners.values())
+        events = _MOCK_ANALYTICS_INSTANCE.events
+        active_count = len({e.learner_id for e in events})
+        completed_count = sum(1 for e in events if e.completed)
+        avg_acc = round(sum(1 for e in events if e.correct) / len(events), 2) if events else 0.85
+        alerts = await self.get_intervention_alerts(teacher_user)
+        return TeacherDashboardOverview(
+            total_learners=len(learners),
+            active_learners_7d=active_count,
+            total_activities_completed_7d=completed_count,
+            cohort_average_accuracy_7d=avg_acc,
+            active_alerts_count=len(alerts),
+            recent_alerts=alerts[:5],
+        )
+
+    async def get_cohort_insights(self, teacher_user: User | None = None, days: int = 30) -> CohortInsights:
+        learners = list(in_memory_learners.values())
+        events = _MOCK_ANALYTICS_INSTANCE.events
+        avg_acc = round(sum(1 for e in events if e.correct) / len(events), 2) if events else 0.85
+        avg_asst = round(sum(e.assistance_level for e in events) / len(events), 2) if events else 0.8
+        modality_distribution = {"visual": 0.45, "interactive": 0.30, "audio": 0.15, "reading": 0.10}
+        mastery_distribution = {"mastered": 2, "developing": 1, "emerging": 0, "struggling": 0}
+
+        learner_summaries = []
+        for l in learners:
+            l_events = [e for e in events if e.learner_id == l.id]
+            l_acc = round(sum(1 for e in l_events if e.correct) / len(l_events), 2) if l_events else 0.85
+            l_asst = round(sum(e.assistance_level for e in l_events) / len(l_events), 2) if l_events else 0.7
+            learner_summaries.append(
+                CohortLearnerSummary(
+                    learner_id=l.id,
+                    display_name=l.display_name,
+                    learning_level=l.learning_level.value if hasattr(l.learning_level, "value") else str(l.learning_level),
+                    communication_preference=l.communication_preference.value if hasattr(l.communication_preference, "value") else str(l.communication_preference),
+                    activities_completed=sum(1 for e in l_events if e.completed),
+                    overall_accuracy=l_acc,
+                    average_assistance=l_asst,
+                    mastered_objectives_count=1,
+                    last_active_at=l_events[-1].timestamp if l_events else now,
+                    active_alert_count=0,
+                )
+            )
+
+        return CohortInsights(
+            cohort_size=len(learners),
+            reporting_period_days=days,
+            average_accuracy=avg_acc,
+            average_assistance_level=avg_asst,
+            modality_distribution=modality_distribution,
+            mastery_distribution=mastery_distribution,
+            learner_summaries=learner_summaries,
+        )
+
+    async def get_intervention_alerts(
+        self, teacher_user: User | None = None, target_learner_id: uuid.UUID | None = None
+    ) -> list[InterventionAlert]:
+        learners = list(in_memory_learners.values())
+        if target_learner_id:
+            learners = [l for l in learners if l.id == target_learner_id]
+
+        alerts = []
+        if learners:
+            target = learners[0]
+            alerts.append(
+                InterventionAlert(
+                    alert_id=f"alert_demo_{target.id}",
+                    learner_id=target.id,
+                    learner_display_name=target.display_name,
+                    trigger_type=AlertTriggerType.high_assistance,
+                    severity=AlertSeverity.warning,
+                    message="Learner required Level 2 assistance across 3 consecutive matching attempts.",
+                    recommended_action="Introduce multi-sensory visual cues or reduce target distractor count.",
+                    evidence_context={"average_assistance": 2.0, "attempts": 3},
+                    detected_at=now,
+                )
+            )
+        return alerts
+
+    async def get_learner_iep_report(
+        self, teacher_user: User | None = None, learner_id: uuid.UUID | None = None, days: int = 30
+    ) -> IEPReport:
+        target_id = learner_id or demo_learner_id
+        learner = in_memory_learners.get(target_id, demo_learner)
+        now_dt = datetime.now(UTC)
+        summary = await _MOCK_ANALYTICS_INSTANCE.get_learner_summary(target_id)
+        mastery = await _MOCK_ANALYTICS_INSTANCE.get_learner_mastery(target_id)
+
+        obj_summaries = [
+            IEPObjectiveSummary(
+                objective_id=st.objective_id,
+                title=st.title,
+                attempts_count=st.attempts_count,
+                accuracy=st.accuracy,
+                average_assistance=st.average_assistance,
+                status=st.status,
+            )
+            for st in mastery.objectives
+        ]
+
+        return IEPReport(
+            report_id=f"iep_demo_{target_id}",
+            generated_at=now_dt,
+            reporting_period=f"Last {days} Days",
+            start_date=now_dt - timedelta(days=days),
+            end_date=now_dt,
+            learner_id=target_id,
+            learner_display_name=learner.display_name,
+            learning_level=learner.learning_level.value if hasattr(learner.learning_level, "value") else str(learner.learning_level),
+            communication_preference=learner.communication_preference.value if hasattr(learner.communication_preference, "value") else str(learner.communication_preference),
+            teacher_notes=learner.teacher_notes,
+            total_activities_attempted=summary.completed_activities,
+            overall_accuracy=summary.overall_accuracy,
+            overall_assistance_average=summary.avg_assistance_level,
+            modality_efficacy={"visual": 0.85, "interactive": 0.78, "audio": 0.65},
+            objectives_progress=obj_summaries,
+            teacher_recommendations=[
+                "Continue strong emphasis on visual-first presentation modalities.",
+                "Maintain progressive scaffolding to encourage autonomous completion.",
+            ],
+            printable_summary_markdown=f"# IEP Progress Report: {learner.display_name}\n\n- **Overall Accuracy**: {summary.overall_accuracy * 100:.1f}%\n- **Average Assistance**: {summary.avg_assistance_level:.1f}\n",
+        )
+
+
+_MOCK_TEACHER_DASHBOARD_INSTANCE = MockTeacherDashboardService()
+
+
 # Patch dependency overrides on FastAPI app
 async def override_get_db_session() -> AsyncGenerator[AsyncMock, None]:
     yield AsyncMock()
@@ -924,6 +1054,17 @@ from app.recommendations.schemas import (
     ProfileSyncResult,
     RecommendationDecision,
 )
+from app.teachers.router import get_teacher_dashboard_service
+from app.teachers.schemas import (
+    AlertSeverity,
+    AlertTriggerType,
+    CohortInsights,
+    CohortLearnerSummary,
+    IEPObjectiveSummary,
+    IEPReport,
+    InterventionAlert,
+    TeacherDashboardOverview,
+)
 
 app.dependency_overrides[get_db_session] = override_get_db_session
 app.dependency_overrides[get_curriculum_service] = lambda: MockCurriculumService()
@@ -931,6 +1072,7 @@ app.dependency_overrides[get_learner_service] = lambda: MockLearnerService()
 app.dependency_overrides[get_activity_service] = lambda: MockActivityService()
 app.dependency_overrides[get_analytics_service] = lambda: _MOCK_ANALYTICS_INSTANCE
 app.dependency_overrides[get_recommendation_service] = lambda: _MOCK_RECOMMENDATION_INSTANCE
+app.dependency_overrides[get_teacher_dashboard_service] = lambda: _MOCK_TEACHER_DASHBOARD_INSTANCE
 
 # Patch UserService where imported
 patch("app.auth.router.UserService", return_value=MockUserService()).start()

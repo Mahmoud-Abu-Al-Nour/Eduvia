@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { BookOpen, Users, BarChart3, LogOut, PlayCircle, TrendingUp, Sparkles } from "lucide-react";
+import { BookOpen, Users, BarChart3, LogOut, PlayCircle, TrendingUp, Sparkles, GraduationCap } from "lucide-react";
 import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
 import { LearnerManager } from "@/features/learners/LearnerManager";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 import { RecommendationCard } from "@/features/recommendations";
+import { TeacherOverview } from "./TeacherOverview";
+import { CohortInsightsView } from "./CohortInsightsView";
+import { IEPReportModal } from "./IEPReportModal";
 import { recommendationsApi } from "@/services/api";
 import api from "@/services/api";
 import type { Learner, RecommendationDecision } from "@/types";
@@ -17,6 +20,15 @@ interface DashboardPageProps {
 export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "overview" }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  // IEP Modal state (Phase 10)
+  const [iepLearner, setIepLearner] = useState<{ id: string; name: string } | null>(null);
+  const [isIepOpen, setIsIepOpen] = useState<boolean>(false);
+
+  const handleOpenIEP = (id: string, name: string) => {
+    setIepLearner({ id, name });
+    setIsIepOpen(true);
+  };
 
   const [learners, setLearners] = useState<Learner[]>([]);
   const [selectedLearnerId, setSelectedLearnerId] = useState<string>("");
@@ -88,6 +100,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           >
             <BarChart3 className={`w-5 h-5 mr-3 ${activeTab === 'overview' ? 'text-blue-700' : 'text-gray-400'}`} />
             Overview
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); setActiveTab("cohort"); }}
+            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'cohort' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <GraduationCap className={`w-5 h-5 mr-3 ${activeTab === 'cohort' ? 'text-blue-700' : 'text-gray-400'}`} />
+            Classroom Cohort
           </a>
           
           <a
@@ -165,26 +186,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
         
         <div className="flex-1 p-8 overflow-auto">
           {activeTab === "overview" && (
-            <div className="max-w-4xl">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Welcome back!</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="text-sm font-medium text-gray-500 mb-1">Active Learners</div>
-                  <div className="text-3xl font-bold text-gray-900">0</div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="text-sm font-medium text-gray-500 mb-1">Pending Activities</div>
-                  <div className="text-3xl font-bold text-gray-900">0</div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                  <div className="text-sm font-medium text-gray-500 mb-1">Alerts</div>
-                  <div className="text-3xl font-bold text-gray-900">0</div>
-                </div>
-              </div>
-            </div>
+            <TeacherOverview
+              onSelectLearnerForIEP={handleOpenIEP}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+          {activeTab === "cohort" && (
+            <CohortInsightsView
+              onSelectLearnerForIEP={handleOpenIEP}
+            />
           )}
 
           {activeTab === "activities" && (
@@ -314,6 +325,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
         </div>
       </main>
 
+      {/* IEP Progress Report Modal (Phase 10) */}
+      <IEPReportModal
+        isOpen={isIepOpen}
+        onClose={() => setIsIepOpen(false)}
+        learnerId={iepLearner?.id || null}
+        learnerName={iepLearner?.name || ""}
+      />
     </div>
   );
 };

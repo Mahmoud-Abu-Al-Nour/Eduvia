@@ -247,6 +247,31 @@ export const recommendationsApi = {
     post<import('@/types').ProfileSyncResult>(`/recommendations/learners/${learnerId}/sync-profile`),
 }
 
+/** Teacher Dashboard & Insights API endpoints (Phase 10) */
+export const teachersApi = {
+  /** Get teacher overview metrics and active alerts */
+  getDashboardOverview: () =>
+    get<import('@/types').TeacherDashboardOverview>('/teacher/dashboard'),
+
+  /** Get classroom / cohort aggregated performance insights */
+  getCohortInsights: (days?: number) =>
+    get<import('@/types').CohortInsights>('/teacher/cohort/insights', {
+      params: days ? { days } : undefined,
+    }),
+
+  /** Get intervention alerts for assigned learners */
+  getAlerts: (includeResolved: boolean = false) =>
+    get<import('@/types').InterventionAlert[]>('/teacher/alerts', {
+      params: { include_resolved: includeResolved },
+    }),
+
+  /** Get Individualized Education Plan (IEP) progress report */
+  getIEPReport: (learnerId: string, days?: number) =>
+    get<import('@/types').IEPReport>(`/teacher/learners/${learnerId}/iep-report`, {
+      params: days ? { days } : undefined,
+    }),
+}
+
 export const api = {
   get,
   post,
@@ -257,6 +282,7 @@ export const api = {
   activities: activitiesApi,
   analytics: analyticsApi,
   recommendations: recommendationsApi,
+  teachers: teachersApi,
   client: apiClient,
 }
 

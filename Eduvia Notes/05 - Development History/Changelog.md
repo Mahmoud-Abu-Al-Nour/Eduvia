@@ -4,6 +4,17 @@ All notable changes to the Eduvia platform are documented chronologically here.
 
 ---
 
+## [Phase 10: Teacher Dashboard & Insights] — 2026-09-19
+- **Added**: Backend teacher dashboard service (`TeacherDashboardService`) and REST router (`/api/v1/teacher/dashboard`, `/api/v1/teacher/cohort/insights`, `/api/v1/teacher/alerts`, `/api/v1/teacher/learners/{id}/iep-report`).
+- **Added**: Real-time overview KPI aggregations across assigned learners, completed practice counts, cohort accuracy, and active educational alerts.
+- **Added**: Classroom & cohort analytics with configurable date-range filtering, sensory modality distribution metrics, and curriculum objective competency state counts.
+- **Added**: Deterministic educational intervention alerts with strict non-diagnostic pedagogical wording (`low_accuracy_repeated`, `assistance_reliance_high`, `mastery_stalled`, `inactivity_threshold`).
+- **Added**: Individualized Education Plan (IEP) progress reporting with longitudinal mastery summaries, modality efficacy metrics, evidence-based recommendations, and multi-format export (standardized Markdown, structured JSON, and print layout).
+- **Added**: Strict server-side multi-tenant teacher ownership validation (`learner.teacher_id == current_user.id`), with 403 Forbidden for unassigned educators.
+- **Added**: Frontend teacher dashboard components: `TeacherOverview.tsx`, `CohortInsightsView.tsx`, `IEPReportModal.tsx`, and integrated sidebar navigation in `DashboardPage.tsx`.
+- **Added**: Offline mock support in `dev_server.py` with `MockTeacherDashboardService`.
+- **Verified**: 14 new tests in `test_teacher_dashboard.py`, achieving **192/192 passing tests** across full backend suite with 84% code coverage. Frontend build passing with 0 errors and 7/7 frontend unit tests passing.
+
 ## [Phase 9: Gemini Production & RAG Ingestion] — 2026-09-19
 - **Added**: Migration from deprecated `google.generativeai` to modern `google-genai` SDK (`from google import genai`), completely eliminating runtime deprecation warnings.
 - **Added**: Vector database integration with Qdrant client managing collections `eduvia_knowledge` and `eduvia_curriculum` with 768-dimensional cosine vector configuration.

@@ -523,3 +523,96 @@ export interface ProfileSyncResult {
   synced_at: string
 }
 
+// ── Teacher Dashboard & Insights Types (Phase 10) ───────────────────────────
+
+export type AlertSeverity = 'info' | 'advisory' | 'priority'
+
+export type AlertTriggerType =
+  | 'low_accuracy_repeated'
+  | 'assistance_reliance_high'
+  | 'mastery_stalled'
+  | 'inactivity_threshold'
+
+export interface InterventionAlert {
+  id: string
+  learner_id: string
+  learner_display_name: string
+  trigger_type: AlertTriggerType
+  severity: AlertSeverity
+  evidence_window: string
+  summary: string
+  recommended_pedagogical_action: string
+  evidence_metrics: Record<string, unknown>
+  created_at: string
+  is_resolved: boolean
+}
+
+export interface TeacherDashboardOverview {
+  teacher_id: string
+  teacher_name: string
+  total_assigned_learners: number
+  active_learners_count: number
+  total_completed_activities: number
+  average_cohort_accuracy: number
+  pending_alerts: InterventionAlert[]
+  recent_recommendations: RecommendationDecision[]
+}
+
+export interface CohortLearnerSummary {
+  learner_id: string
+  display_name: string
+  learning_level: string
+  age_group: string
+  is_active: boolean
+  total_events: number
+  completed_activities: number
+  overall_accuracy: number
+  average_assistance_level: number
+  mastered_objectives_count: number
+  in_progress_objectives_count: number
+  last_active_at?: string | null
+  active_alerts_count: number
+}
+
+export interface CohortInsights {
+  teacher_id: string
+  reporting_period: string
+  total_cohort_learners: number
+  active_learners_in_period: number
+  cohort_accuracy: number
+  cohort_avg_assistance_level: number
+  total_activities_completed: number
+  modality_distribution: Record<string, number>
+  mastery_status_counts: Record<string, number>
+  learners: CohortLearnerSummary[]
+}
+
+export interface IEPObjectiveSummary {
+  objective_id: string
+  title: string
+  attempts_count: number
+  accuracy: number
+  average_assistance: number
+  status: string
+}
+
+export interface IEPReport {
+  report_id: string
+  generated_at: string
+  reporting_period: string
+  start_date?: string | null
+  end_date: string
+  learner_id: string
+  learner_display_name: string
+  learning_level: string
+  communication_preference: string
+  teacher_notes?: string | null
+  total_activities_attempted: number
+  overall_accuracy: number
+  overall_assistance_average: number
+  modality_efficacy: Record<string, number>
+  objectives_progress: IEPObjectiveSummary[]
+  teacher_recommendations: string[]
+  printable_summary_markdown: string
+}
+

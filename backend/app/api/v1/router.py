@@ -13,6 +13,7 @@ from app.auth.router import router as auth_router
 from app.curriculum.router import router as curriculum_router
 from app.learners.router import router as learners_router
 from app.recommendations.router import router as recommendations_router
+from app.teachers.router import router as teachers_router
 from app.users.router import router as users_router
 
 api_router = APIRouter()
@@ -42,4 +43,7 @@ api_router.include_router(analytics_router)
 
 # ── Recommendations & Adaptive Learning (Phase 8) ─────────────────────────────
 api_router.include_router(recommendations_router)
+
+# ── Teacher Dashboard & Insights (Phase 10) ───────────────────────────────────
+api_router.include_router(teachers_router)
 

@@ -193,6 +193,20 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
 * **Gate Status**: **PHASE 9 — LOCKED**
 * **Documentation**: [[03 - AI & Adaptive Learning/RAG Knowledge Base|RAG Knowledge Base]], [[03 - AI & Adaptive Learning/Gemini Integration|Gemini Integration]], [[05 - Development History/Phase 09 — Gemini Production & RAG Ingestion|Phase 09 — Gemini Production & RAG Ingestion]]
 
+### Phase 10 — Teacher Dashboard & Insights
+* **Objective**: Deliver a dedicated teacher-facing intelligence, cohort analytics, and management layer aggregating telemetry into actionable educational summaries, deterministic alerts, and printable Individualized Education Plan (IEP) progress reports.
+* **Scope & Delivery**:
+  * Scoped multi-tenant overview: total assigned learners, active learners, completed practice count, and mean cohort accuracy.
+  * Classroom cohort analytics: date-range filtering, sensory modality distribution metrics, and curriculum objective competency state counts.
+  * Interactive student roster: sorting, filtering, and 1-click IEP progress report generation.
+  * Deterministic intervention alerts: rule-based educational triggers (`low_accuracy_repeated`, `assistance_reliance_high`, `mastery_stalled`, `inactivity_threshold`) using strict non-diagnostic, pedagogical wording.
+  * Comprehensive IEP progress reporting: longitudinal mastery breakdowns, modality efficacy analysis, pedagogical recommendations, and multi-format export (standardized Markdown, structured JSON, print view).
+  * Server-side multi-tenant authorization: enforces `learner.teacher_id == current_user.id`, returning 403 Forbidden on unassigned access.
+  * Frontend experience: `TeacherOverview.tsx`, `CohortInsightsView.tsx`, `IEPReportModal.tsx`, and integrated sidebar navigation in `DashboardPage.tsx`.
+* **Verified Milestone**: **192/192 backend tests passed** (14 Phase 10 tests + 178 baseline, 84% code coverage). Frontend production build clean (0 errors, 7/7 frontend unit tests passing).
+* **Gate Status**: **PHASE 10 — LOCKED**
+* **Documentation**: [[05 - Development History/Phase 10 — Teacher Dashboard & Insights|Phase 10 — Teacher Dashboard & Insights]], [[05 - Development History/Reports/Phase 10 Report|Phase 10 Report]]
+
 ---
 
 
@@ -247,6 +261,7 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
 | **Phase 7** | Learner Analytics & Mastery Tracking | 143 passed | Verified | **LOCKED** |
 | **Phase 8** | Adaptive Learning Intelligence Engine | 159 passed | Verified | **LOCKED** |
 | **Phase 9** | Gemini Production & RAG Ingestion | 178 passed | Verified | **LOCKED** |
+| **Phase 10** | Teacher Dashboard & Insights | 192 passed | Verified | **LOCKED** |
 
 ---
 
@@ -266,6 +281,7 @@ The development history is tracked under Git version control on branch `develop`
 | `6d58bb8` | ahmedsamehzaky | 2026-09-19 | `feat(phase-8): complete and lock Adaptive Learning Intelligence Engine` (**Phase 8 Locked**) |
 | `420910a` | ahmedsamehzaky | 2026-09-19 | `fix(dev-server): resolve undefined mock variables in MockRecommendationService` |
 | `a8fe793` | ahmedsamehzaky | 2026-09-19 | `feat(phase-9): complete and lock Gemini Production SDK migration and RAG Ingestion pipeline` (**Phase 9 Locked**) |
+| `69c9edb` | ahmedsamehzaky | 2026-09-19 | `feat(phase-10): complete and lock Teacher Dashboard and Insights` (**Phase 10 Locked**) |
 
 * **Current Branch**: `develop`
 * **Remote Tracking**: `origin/develop` (`https://github.com/Mahmoud-Abu-Al-Nour/Eduvia.git`)
