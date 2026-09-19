@@ -100,7 +100,7 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
   * **Zero-Strand Guarantee**: Deterministic fallback activity generator (`fallbacks.py`) ensuring instant, valid activity generation across all failure cases (network outage, invalid model JSON, API quotas, or missing fields).
   * Teacher constraints and pedagogical overrides support.
   * REST API router (`/api/v1/activities/generate`) and mock generator integration in `dev_server.py`.
-* **Verified Milestone**: **80/80 backend tests passed** (26 Phase 4 tests [22 test functions including 5 parametrized modality cases] + 54 baseline). Frontend build clean.
+* **Verified Milestone**: **80/80 backend tests passed** (26 Phase 4 tests [22 test functions defined in code: 21 standalone functions + 1 function parametrized across 5 modalities] + 54 baseline). Frontend build clean.
 * **Gate Status**: **PHASE 4 — LOCKED**
 * **Known Non-Blocking Issue**: `google.generativeai` deprecation warning deferred to Phase 9.
 * **Documentation**: [[03 - AI & Adaptive Learning/Activity Generation|Activity Generation]], [[05 - Development History/Phase 04 — Activity Generation Engine|Phase 04 — Activity Generation Engine]]
@@ -188,7 +188,8 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
   * Implemented `KnowledgeRetrievalService` for semantic pedagogical context lookup by objective and strategy.
   * Integrated RAG grounding context into `ActivityService.generate_activity()` prompts with `grounding_sources` source attribution.
   * Preserved the Phase 4 Zero-Strand Guarantee on RAG/LLM failure and preserved Phase 8 deterministic adaptation authority.
-* **Verified Milestone**: **178/178 backend tests passed** (19 Phase 9 tests + 159 baseline, 83% code coverage). Frontend production build clean (0 errors).
+* **Verified Milestone**: **178/178 backend tests passed** (19 newly introduced Phase 9 tests + 159 baseline [29 tests in the Phase 9-related test files, including 10 pre-existing foundational tests], 83% code coverage). Frontend production build clean (0 errors).
+
 * **Gate Status**: **PHASE 9 — LOCKED**
 * **Documentation**: [[03 - AI & Adaptive Learning/RAG Knowledge Base|RAG Knowledge Base]], [[03 - AI & Adaptive Learning/Gemini Integration|Gemini Integration]], [[05 - Development History/Phase 09 — Gemini Production & RAG Ingestion|Phase 09 — Gemini Production & RAG Ingestion]]
 

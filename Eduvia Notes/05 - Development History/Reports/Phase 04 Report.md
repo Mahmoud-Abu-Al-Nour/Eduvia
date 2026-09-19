@@ -1,5 +1,8 @@
 # Eduvia — Phase 4 Implementation Report: Activity Generation Engine
 
+> [!NOTE] Historical Archival Clarification
+> This archived report preserves original historical evidence from Phase 4 completion. Section 5 subheader contains a typographical count of "20 passed", whereas the 26 enumerated tests in the itemized list below it (22 test functions defined in code: 21 standalone functions + 1 function parametrized across 5 modalities) correctly sum with the 54 baseline tests to the recorded 80/80 total (`54 + 26 = 80`).
+
 ## 1. Phase 4 Scope
 
 According to the master `Development Roadmap.md` and `Eduvia Notes (03 - AI & Adaptive Learning / Activity Generation.md)`:

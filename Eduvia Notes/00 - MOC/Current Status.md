@@ -29,20 +29,22 @@ Repository Head: `origin/develop` (`a8fe793`)
 
 ### 1. Test Suite Execution
 - **Backend Regression Suite**: **178/178 passing tests** (100% pass rate, 83% code coverage).
-  - Auth tests: `test_auth.py`
-  - User tests: `test_users.py`
-  - Curriculum tests: `test_curriculum.py`
-  - Learner tests: `test_learners.py`
-  - Integration & Role tests: `test_api_integration.py`
-  - Health & Diagnostics: `test_health.py`
-  - Activity Generation: `test_activities.py` (20 tests)
+  - Auth tests: `test_auth.py` (4 tests)
+  - User tests: `test_users.py` (4 tests)
+  - Curriculum tests: `test_curriculum.py` (3 tests)
+  - Health & Diagnostics: `test_health.py` (7 tests)
+  - Integration & Role tests: `test_api_integration.py` (13 tests)
+  - Learner tests: `test_learners.py` (13 tests)
+  - AI Providers & Gemini SDK: `test_ai_providers.py` (15 tests: 10 foundational + 5 Phase 9)
+  - Activity Generation: `test_activities.py` (26 tests [22 test functions defined in code: 21 standalone functions + 1 function parametrized across 5 modalities])
   - Activity Interaction & Evaluation: `test_activity_interaction.py` (31 tests)
   - Telemetry Ingestion: `test_analytics.py` (17 tests)
   - Analytics Aggregation & Mastery: `test_learner_analytics.py` (15 tests)
   - Adaptive Recommendations: `test_recommendations.py` (16 tests)
-  - AI Providers & Gemini SDK: `test_ai_providers.py`
-  - Qdrant & RAG Ingestion: `test_qdrant.py`, `test_knowledge_ingestion.py`
-  - Knowledge Retrieval: `test_knowledge_retrieval.py`
+  - Knowledge Ingestion: `test_knowledge_ingestion.py` (5 tests)
+  - Knowledge Retrieval: `test_knowledge_retrieval.py` (6 tests)
+  - RAG Generation: `test_rag_generation.py` (3 tests)
+
 - **Frontend Production Build**: `npm run build` (`tsc -b && vite build`) succeeded with **0 errors**.
 - **Type Checking & Linting**: Clean across backend (`ruff`, `mypy`) and frontend (`tsc`).
 

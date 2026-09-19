@@ -61,7 +61,8 @@ Establish production-grade Google Gemini integration by migrating to the modern 
 
 ### Test Suite (178/178)
 - **Phase 0–8 Regression**: All 159 prior tests passing.
-- **Phase 9 New Tests** (19 tests):
+- **Phase 9 Incremental Additions**: **19 newly introduced Phase 9 tests** (with 29 tests total in Phase 9-related test files, including 10 pre-existing foundational tests in `test_ai_providers.py`):
+
   - Gemini provider: generation, structured output, error normalization, embedding.
   - Qdrant client: collection init, upsert, cosine search, offline graceful degradation.
   - Ingestion pipeline: parsing, chunking, UUIDv5 dedup, metadata validation.

@@ -13,7 +13,7 @@ All notable changes to the Eduvia platform are documented chronologically here.
 - **Added**: Contextual RAG grounding injection in `build_activity_generation_messages` with `grounding_sources` payload returned in `ActivityGenerateResponse`.
 - **Added**: Zero-Strand Guarantee preservation: deterministic fallback generation is immediately triggered upon any RAG or provider exception.
 - **Added**: Frontend type contract updates for `GroundingSource` and `ActivityGenerateResponse`.
-- **Verified**: 19 new tests across `test_ai_providers.py`, `test_knowledge_retrieval.py`, `test_knowledge_ingestion.py`, and `test_rag_generation.py`, achieving **178/178 passing tests** across full backend suite with 83% code coverage and 0 deprecation warnings from Gemini. Frontend production build passing with 0 errors.
+- **Verified**: 19 newly introduced Phase 9 tests across `test_ai_providers.py`, `test_knowledge_retrieval.py`, `test_knowledge_ingestion.py`, and `test_rag_generation.py` (with 29 tests total across Phase 9-related test files, including 10 pre-existing foundational tests in `test_ai_providers.py`), achieving **178/178 passing tests** across full backend suite with 83% code coverage and 0 deprecation warnings from Gemini. Frontend production build passing with 0 errors.
 
 ## [Phase 8: Adaptive Learning Intelligence Engine] — 2026-09-19
 
@@ -64,7 +64,7 @@ All notable changes to the Eduvia platform are documented chronologically here.
 - **Added**: Zero-Strand Guarantee deterministic fallback generator `fallbacks.py` handling all network/model/quota failure paths.
 - **Added**: Activity generation REST API `POST /api/v1/activities/generate` and mock generator in `dev_server.py`.
 - **Fixed**: Corrected Phase 4 scope from initial prompt error (Learner Profile belongs to Phase 3; Activity Generation is Phase 4).
-- **Verified**: 20 new tests in `test_activities.py`, achieving **80/80 passing tests**. Frontend build verified. Committed (`42d1420`).
+- **Verified**: 26 new tests in `test_activities.py` (22 test functions defined in code: 21 standalone functions + 1 function parametrized across 5 modalities), achieving **80/80 passing tests**. Frontend build verified. Committed (`42d1420`).
 
 ## [Phase 3: Learner Profile & Domain Entity] — 2026-09-19
 - **Added**: `Learner` and `LearnerProfile` models in `backend/app/learners/models.py`.

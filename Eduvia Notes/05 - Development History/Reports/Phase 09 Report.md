@@ -5,6 +5,9 @@
 **Git Branch:** `develop`  
 **Current Baseline Status:** `PHASE 9 — LOCKED`  
 
+> [!NOTE] Historical Archival Clarification
+> This archived report preserves original historical evidence from Phase 9 completion. Section 7 itemizes 29 tests across all Phase 9-related test files (which includes 10 pre-existing foundational tests in `test_ai_providers.py`). The actual incremental test addition was **19 newly introduced Phase 9 tests**, which advanced the verified regression baseline from 159 to 178 (`159 + 19 = 178`).
+
 ---
 
 ## 1. Exact Phase 9 Scope

@@ -38,7 +38,7 @@ Design and implement the structured AI Activity Generation Engine. The engine tr
 ---
 
 ## Verification & Testing
-* **Test Suite**: 26 unit and integration tests (22 test functions including 5 parametrized modality cases) in `backend/tests/test_activities.py` covering:
+* **Test Suite**: 26 unit and integration tests (22 test functions defined in code: 21 standalone functions + 1 function parametrized across 5 modalities) in `backend/tests/test_activities.py` covering:
   * Successful LLM generation.
   * LLM network timeout fallback.
   * Invalid JSON response fallback.
