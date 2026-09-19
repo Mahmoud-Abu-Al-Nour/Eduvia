@@ -8,6 +8,7 @@
 **Frontend Production Build:** Passed (0 errors, 0 type-check warnings)  
 **WCAG Accessibility:** Certified WCAG 2.1 AA Compliant  
 **Obsidian Links:** 100% valid (0 broken links)  
+**Git Commit:** `ebbd539`  
 
 ---
 
