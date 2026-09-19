@@ -22,12 +22,18 @@ import { DashboardPage } from '@/features/dashboard/DashboardPage'
  * /learn/:sessionId    → Learner activity interface (Phase 5)
  * /analytics           → Learning analytics (Phase 7)
  */
+import { ActivityPlayer } from '@/features/learning'
+
 function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       
+      {/* Learner Activity Player (Phase 5 - Session-based, no teacher login required) */}
+      <Route path="/learn" element={<ActivityPlayer />} />
+      <Route path="/learn/:activityId" element={<ActivityPlayer />} />
+
       <Route element={<ProtectedRoute allowedRoles={["admin", "teacher"]} />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/curriculum" element={<DashboardPage initialTab="curriculum" />} />
@@ -35,10 +41,10 @@ function App() {
         <Route path="/learners/:id" element={<DashboardPage initialTab="learners" />} />
       </Route>
       
-      {/* Future routes will be added here as phases are implemented */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }
+
 
 export default App

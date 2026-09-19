@@ -176,7 +176,7 @@ export interface LearningObjective {
   difficulty_level: 1 | 2 | 3 | 4 | 5
 }
 
-// ── Activity Types ─────────────────────────────────────────────────────────
+// ── Activity Types (Phase 4 & 5) ──────────────────────────────────────────
 
 export type ActivityType =
   | 'matching'
@@ -195,78 +195,211 @@ export type TeachingStrategy =
   | 'positive_reinforcement'
   | 'gradual_difficulty'
 
-export interface Activity {
+
+export interface MultipleChoiceOption {
   id: string
-  objective_id: string
-  activity_type: ActivityType
-  modality: Modality
-  strategy: TeachingStrategy
-  difficulty: 1 | 2 | 3 | 4 | 5
-  content: ActivityContent
-  audio_enabled: boolean
-  created_at: string
+  text: string
+  visual_cue?: string | null
+  is_correct: boolean
+  distractor_rationale?: string | null
 }
 
-// Activity content is a discriminated union based on activity_type
+export interface MultipleChoiceContent {
+  activity_type: 'multiple_choice'
+  question: string
+  options: MultipleChoiceOption[]
+  correct_answer_id: string
+  explanation: string
+}
+
+export interface MatchingItem {
+  id: string
+  label: string
+  visual_cue?: string | null
+}
+
+export interface MatchingPair {
+  left_id: string
+  right_id: string
+}
+
+export interface MatchingContent {
+  activity_type: 'matching'
+  prompt: string
+  left_items: MatchingItem[]
+  right_items: MatchingItem[]
+  pairs: MatchingPair[]
+}
+
+export interface OrderingItem {
+  id: string
+  label: string
+  visual_cue?: string | null
+}
+
+export interface OrderingContent {
+  activity_type: 'ordering'
+  prompt: string
+  items: OrderingItem[]
+  correct_sequence: string[]
+  direction?: 'ascending' | 'descending' | 'chronological' | string
+}
+
+export interface VisualElement {
+  id: string
+  label: string
+  category?: string
+  is_target: boolean
+  bounding_hint?: string | null
+}
+
+export interface VisualIdentificationContent {
+  activity_type: 'visual_identification'
+  prompt: string
+  scene_description: string
+  elements: VisualElement[]
+  target_id: string
+  feedback_clue: string
+}
+
+export interface DragItem {
+  id: string
+  label: string
+  visual_cue?: string | null
+}
+
+export interface DropZone {
+  id: string
+  label: string
+  capacity?: number
+}
+
+export interface DragDropContent {
+  activity_type: 'drag_drop'
+  prompt: string
+  items: DragItem[]
+  zones: DropZone[]
+  correct_mapping: Record<string, string>
+}
+
 export type ActivityContent =
-  | MatchingContent
   | MultipleChoiceContent
+  | MatchingContent
   | OrderingContent
   | VisualIdentificationContent
   | DragDropContent
 
-export interface MatchingContent {
-  type: 'matching'
-  instruction: string
-  pairs: Array<{ left: string; right: string }>
+export interface Activity {
+  id: string
+  objective_id: string
+  activity_type: ActivityType
+  title: string
+  instructions: string
+  difficulty_level: number
+  content: ActivityContent
+  hints: string[]
+  scaffolding_level: number
+  metadata?: Record<string, any>
+  created_at?: string
 }
 
-export interface MultipleChoiceContent {
-  type: 'multiple_choice'
-  question: string
-  options: string[]
-  correct_index: number
-  explanation?: string
+// ── Phase 5: Submission & Interaction Types ─────────────────────────────────
+
+export interface MultipleChoiceSubmission {
+  activity_type: 'multiple_choice'
+  selected_option_id: string
 }
 
-export interface OrderingContent {
-  type: 'ordering'
-  instruction: string
-  items: string[]
-  correct_order: number[]
+export interface MatchingSubmission {
+  activity_type: 'matching'
+  pairs: MatchingPair[]
 }
 
-export interface VisualIdentificationContent {
-  type: 'visual_identification'
-  instruction: string
-  image_url: string
-  target: string
-  options: string[]
+export interface OrderingSubmission {
+  activity_type: 'ordering'
+  ordered_ids: string[]
 }
 
-export interface DragDropContent {
-  type: 'drag_drop'
-  instruction: string
-  items: string[]
-  targets: string[]
-  correct_mapping: Record<string, string>
+export interface VisualIdentificationSubmission {
+  activity_type: 'visual_identification'
+  selected_element_id: string
 }
+
+export interface DragDropSubmission {
+  activity_type: 'drag_drop'
+  item_to_zone_mapping: Record<string, string>
+}
+
+export type ActivitySubmissionPayload =
+  | MultipleChoiceSubmission
+  | MatchingSubmission
+  | OrderingSubmission
+  | VisualIdentificationSubmission
+  | DragDropSubmission
+
+export interface ActivitySubmissionRequest {
+  activity_id: string
+  objective_id: string
+  activity_type: ActivityType
+  submission: ActivitySubmissionPayload
+  learner_id?: string | null
+  hints_used: number
+  time_spent_seconds: number
+  activity_content?: ActivityContent | null
+}
+
+export interface ActivityEvaluationResponse {
+  activity_id: string
+  is_correct: bool_or_boolean
+  score: number
+  mastery_achieved: boolean
+  feedback: string
+  explanation?: string | null
+  correct_answer_summary: Record<string, any>
+  hints_used: number
+  assistance_level: number
+  evaluation_details?: Record<string, any>
+}
+
+type bool_or_boolean = boolean
+
 
 // ── Performance & Analytics Types ──────────────────────────────────────────
 
 export interface PerformanceEvent {
+  id?: string
   learner_id: string
   activity_id: string
+  attempt_id?: string | null
   objective_id: string
   activity_type: ActivityType
   modality: Modality
   strategy: TeachingStrategy
   correct: boolean
+  score: number
   attempts: number
   response_time_ms: number
   hints_used: number
   assistance_level: number
   completed: boolean
+  difficulty: number
+  metadata?: Record<string, any>
+  timestamp?: string
+  created_at?: string
+}
+
+export interface ActivityAttempt {
+  id: string
+  activity_id: string
+  learner_id: string
+  session_id?: string | null
+  started_at: string
+  completed_at?: string | null
+  response_data?: Record<string, any> | null
+  score?: number | null
+  completed: boolean
+  created_at: string
+  updated_at: string
 }
 
 // ── Recommendation Types ───────────────────────────────────────────────────

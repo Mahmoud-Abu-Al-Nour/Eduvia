@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { BookOpen, Users, BarChart3, LogOut } from "lucide-react";
+import { BookOpen, Users, BarChart3, LogOut, PlayCircle } from "lucide-react";
 import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
 import { LearnerManager } from "@/features/learners/LearnerManager";
+
 
 interface DashboardPageProps {
   initialTab?: string;
@@ -33,6 +34,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
             Overview
           </a>
           
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); setActiveTab("activities"); }}
+            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'activities' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <PlayCircle className={`w-5 h-5 mr-3 ${activeTab === 'activities' ? 'text-blue-700' : 'text-gray-400'}`} />
+            Activities & Practice
+          </a>
+
           <a
             href="#"
             onClick={(e) => { e.preventDefault(); setActiveTab("curriculum"); }}
@@ -102,6 +112,53 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
               </div>
             </div>
           )}
+
+          {activeTab === "activities" && (
+            <div className="max-w-4xl space-y-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Learner Activity Launcher</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Experience the distraction-free learner interface with TTS narration, progressive hints, and Cognitive Calm feedback.
+                    </p>
+                  </div>
+                  <a
+                    href="/learn"
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm transition-all"
+                  >
+                    <PlayCircle className="w-5 h-5" />
+                    <span>Launch Learner Experience</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Supported Modalities Showcase */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {[
+                  { name: "Multiple Choice", type: "multiple_choice", desc: "Select target among calibrated options" },
+                  { name: "Matching Pairs", type: "matching", desc: "Connect related items across two columns" },
+                  { name: "Sequential Ordering", type: "ordering", desc: "Arrange items along an ordered continuum" },
+                  { name: "Visual Identification", type: "visual_identification", desc: "Identify target items in accessible scenes" },
+                  { name: "Drag & Drop", type: "drag_drop", desc: "Categorize items into distinct target buckets" },
+                ].map((mod) => (
+                  <div key={mod.type} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                      <h3 className="font-bold text-gray-900 mb-1">{mod.name}</h3>
+                      <p className="text-xs text-gray-600 mb-4">{mod.desc}</p>
+                    </div>
+                    <a
+                      href={`/learn?activity_type=${mod.type}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white text-xs font-semibold transition-colors"
+                    >
+                      <PlayCircle className="w-4 h-4" />
+                      <span>Practice {mod.name}</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {activeTab === "curriculum" && (
             <div className="max-w-6xl">
@@ -116,6 +173,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           )}
         </div>
       </main>
+
     </div>
   );
 };

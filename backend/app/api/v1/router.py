@@ -6,6 +6,8 @@ Add new feature routers here as they are implemented.
 """
 from fastapi import APIRouter
 
+from app.activities.router import router as activities_router
+from app.analytics.router import router as analytics_router
 from app.api.v1 import health
 from app.auth.router import router as auth_router
 from app.curriculum.router import router as curriculum_router
@@ -31,7 +33,11 @@ api_router.include_router(curriculum_router)
 # ── Learners (Phase 3) ────────────────────────────────────────────────────────
 api_router.include_router(learners_router)
 
-# ── Future routers (Phase 4+) ─────────────────────────────────────────────────
-# api_router.include_router(activities.router, prefix="/activities", tags=["activities"])
-# api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+# ── Activities (Phase 4 & 5) ──────────────────────────────────────────────────
+api_router.include_router(activities_router)
+
+# ── Analytics & Telemetry (Phase 6) ───────────────────────────────────────────
+api_router.include_router(analytics_router)
+
+# ── Future routers (Phase 7+) ─────────────────────────────────────────────────
 # api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])

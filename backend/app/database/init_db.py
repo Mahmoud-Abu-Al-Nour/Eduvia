@@ -10,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.database.base import EduviaBase
 from app.database.session import get_engine
+import app.users.models  # noqa: F401
+import app.curriculum.models  # noqa: F401
+import app.learners.models  # noqa: F401
+import app.analytics.models  # noqa: F401
 
 logger = structlog.get_logger(__name__)
 

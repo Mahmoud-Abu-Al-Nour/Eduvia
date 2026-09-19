@@ -5,20 +5,48 @@ Enables live end-to-end UI verification (frontend <-> backend <-> browser)
 when running in environments without an active Docker / PostgreSQL daemon.
 Provides exact demonstration entities matching seed_demo_data.py.
 """
+from __future__ import annotations
+
+import os
+import sys
 import uuid
-from datetime import datetime, timezone
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock, patch
+
 import uvicorn
-from fastapi.middleware.cors import CORSMiddleware
 
-from app.main import app
+# Ensure backend directory is in sys.path so 'app' can always be resolved
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+
+from app.activities.fallbacks import create_fallback_activity
+from app.activities.router import get_activity_service
+from app.activities.schemas import (
+    Activity,
+    ActivityEvaluationResponse,
+    ActivityGenerateRequest,
+    ActivityGenerateResponse,
+    ActivitySubmissionRequest,
+    ActivityType,
+)
+from app.activities.service import ActivityService
 from app.auth.security import get_password_hash
-from app.users.models import User, UserRole
-from app.database.session import get_db_session
 from app.curriculum.router import get_curriculum_service
-from typing import Any, AsyncGenerator
+from app.database.session import get_db_session
+from app.learners.models import Learner, LearnerProfile
+from app.learners.router import get_learner_service
+from app.learners.schemas import (
+    LearnerCreate,
+    LearnerObservationCreate,
+    LearnerUpdate,
+)
+from app.main import app
+from app.users.models import User, UserRole
 
-now = datetime.now(timezone.utc)
+now = datetime.now(UTC)
 teacher_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
 admin_id = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
@@ -52,11 +80,14 @@ less_id = uuid.UUID("66666666-6666-6666-6666-666666666666")
 obj1_id = uuid.UUID("77777777-7777-7777-7777-777777777777")
 obj2_id = uuid.UUID("88888888-8888-8888-8888-888888888888")
 
-obj1_dict = {
+obj1_dict: dict[str, Any] = {
     "id": obj1_id,
     "lesson_id": less_id,
     "title": {"en": "Recognize numbers 1–5", "ar": "التعرف على الأرقام ١-٥"},
-    "description": {"en": "Identify written numerals 1 to 5 and match to dot patterns.", "ar": "التعرف على الأرقام المكتوبة من ١ إلى ٥ ومطابقتها مع أنماط النقاط."},
+    "description": {
+        "en": "Identify written numerals 1 to 5 and match to dot patterns.",
+        "ar": "التعرف على الأرقام المكتوبة من ١ إلى ٥ ومطابقتها مع أنماط النقاط.",
+    },
     "difficulty_level": 1,
     "assessment_criteria": {"minimum_accuracy": 0.8, "maximum_assistance_level": 2},
     "order_index": 1,
@@ -64,11 +95,14 @@ obj1_dict = {
     "prerequisites": [],
 }
 
-obj2_dict = {
+obj2_dict: dict[str, Any] = {
     "id": obj2_id,
     "lesson_id": less_id,
     "title": {"en": "Recognize numbers 6–10", "ar": "التعرف على الأرقام ٦-١٠"},
-    "description": {"en": "Identify written numerals 6 to 10 and order them progressively.", "ar": "التعرف على الأرقام المكتوبة من ٦ إلى ١٠ وترتيبها تدريجياً."},
+    "description": {
+        "en": "Identify written numerals 6 to 10 and order them progressively.",
+        "ar": "التعرف على الأرقام المكتوبة من ٦ إلى ١٠ وترتيبها تدريجياً.",
+    },
     "difficulty_level": 2,
     "assessment_criteria": {"minimum_accuracy": 0.8, "maximum_assistance_level": 1},
     "order_index": 2,
@@ -76,7 +110,7 @@ obj2_dict = {
     "prerequisites": [obj1_dict],
 }
 
-lesson_dict = {
+lesson_dict: dict[str, Any] = {
     "id": less_id,
     "unit_id": unit_id,
     "title": {"en": "Number Recognition 1–10", "ar": "التعرف على الأرقام من ١ إلى ١٠"},
@@ -85,7 +119,7 @@ lesson_dict = {
     "learning_objectives": [obj1_dict, obj2_dict],
 }
 
-unit_dict = {
+unit_dict: dict[str, Any] = {
     "id": unit_id,
     "subject_id": subj_id,
     "title": {"en": "Number Sense & Counting", "ar": "الحس العددي والعد"},
@@ -94,7 +128,7 @@ unit_dict = {
     "lessons": [lesson_dict],
 }
 
-subject_dict = {
+subject_dict: dict[str, Any] = {
     "id": subj_id,
     "curriculum_id": curr_id,
     "title": {"en": "Foundational Mathematics", "ar": "أساسيات الرياضيات"},
@@ -103,7 +137,7 @@ subject_dict = {
     "units": [unit_dict],
 }
 
-curriculum_full_dict = {
+curriculum_full_dict: dict[str, Any] = {
     "id": curr_id,
     "title": {"en": "Eduvia Demonstration Curriculum", "ar": "منهج إدوفيا التجريبي"},
     "description": {"en": "A standardized demonstration curriculum for inclusive numeracy.", "ar": "منهج تجريبي معياري لتطوير مهارات الحساب الشاملة."},
@@ -113,7 +147,7 @@ curriculum_full_dict = {
     "subjects": [subject_dict],
 }
 
-curriculum_summary_dict = {
+curriculum_summary_dict: dict[str, Any] = {
     "id": curr_id,
     "title": curriculum_full_dict["title"],
     "description": curriculum_full_dict["description"],
@@ -170,10 +204,6 @@ class MockCurriculumService:
             return obj2_dict
         return None
 
-
-from app.learners.models import Learner, LearnerProfile
-from app.learners.router import get_learner_service
-from app.learners.schemas import LearnerCreate, LearnerUpdate, LearnerObservationCreate
 
 # Demo Learner fixture matching seed_demo_data.py
 demo_learner_id = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -274,39 +304,46 @@ demo_profile = LearnerProfile(
 )
 demo_learner.profile = demo_profile
 
-in_memory_learners = {demo_learner_id: demo_learner}
+in_memory_learners: dict[uuid.UUID, Learner] = {demo_learner_id: demo_learner}
 
 
 class MockLearnerService:
-    async def list_learners(self, teacher_id: uuid.UUID | None, is_admin: bool = False) -> list[Learner]:
+    async def list_learners(
+        self, teacher_id: uuid.UUID | None, is_admin: bool = False
+    ) -> list[Learner]:
         if is_admin:
             return list(in_memory_learners.values())
-        return [l for l in in_memory_learners.values() if l.teacher_id == teacher_id]
+        return [learner for learner in in_memory_learners.values() if learner.teacher_id == teacher_id]
 
-    async def get_by_id(self, learner_id: uuid.UUID, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> Learner | None:
-        l = in_memory_learners.get(learner_id)
-        if not l:
+    async def get_by_id(
+        self,
+        learner_id: uuid.UUID,
+        teacher_id: uuid.UUID | None = None,
+        is_admin: bool = False,
+    ) -> Learner | None:
+        learner = in_memory_learners.get(learner_id)
+        if not learner:
             return None
-        if not is_admin and teacher_id is not None and l.teacher_id != teacher_id:
+        if not is_admin and teacher_id is not None and learner.teacher_id != teacher_id:
             return None
-        return l
+        return learner
 
     async def create(self, data: LearnerCreate, teacher_id: uuid.UUID | None) -> Learner:
         new_id = uuid.uuid4()
-        l = Learner(
+        learner = Learner(
             id=new_id,
             name=data.name,
             age_group=data.age_group,
             learning_level=data.learning_level,
             teacher_id=teacher_id,
             is_active=True,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
-        p = LearnerProfile(
+        profile = LearnerProfile(
             id=uuid.uuid4(),
             learner_id=new_id,
-            learner=l,
+            learner=learner,
             communication_preferences=data.communication_preferences or {
                 "primary_mode": "verbal",
                 "receptive_preference": ["verbal", "visual_cues"],
@@ -376,74 +413,255 @@ class MockLearnerService:
                 "consistency_pattern": "stable",
             },
             observations=[],
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
-        l.profile = p
-        in_memory_learners[new_id] = l
-        return l
+        learner.profile = profile
+        in_memory_learners[new_id] = learner
+        return learner
 
-    async def update(self, learner_id: uuid.UUID, data: LearnerUpdate, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> Learner | None:
-        l = in_memory_learners.get(learner_id)
-        if not l:
+    async def update(
+        self,
+        learner_id: uuid.UUID,
+        data: LearnerUpdate,
+        teacher_id: uuid.UUID | None = None,
+        is_admin: bool = False,
+    ) -> Learner | None:
+        learner = in_memory_learners.get(learner_id)
+        if not learner:
             return None
-        if not is_admin and teacher_id is not None and l.teacher_id != teacher_id:
+        if not is_admin and teacher_id is not None and learner.teacher_id != teacher_id:
             return None
         if data.name is not None:
-            l.name = data.name
+            learner.name = data.name
         if data.learning_level is not None:
-            l.learning_level = data.learning_level
+            learner.learning_level = data.learning_level
         if data.age_group is not None:
-            l.age_group = data.age_group
-        if data.profile and l.profile:
-            p = l.profile
+            learner.age_group = data.age_group
+        if data.profile and learner.profile:
+            profile = learner.profile
             if data.profile.teacher_notes is not None:
-                p.teacher_notes = data.profile.teacher_notes
+                profile.teacher_notes = data.profile.teacher_notes
             if data.profile.support_requirements is not None:
-                p.support_requirements = data.profile.support_requirements
+                profile.support_requirements = data.profile.support_requirements
             if data.profile.teacher_constraints is not None:
-                p.teacher_constraints = data.profile.teacher_constraints
+                profile.teacher_constraints = data.profile.teacher_constraints
             if data.profile.teacher_overrides is not None:
-                p.teacher_overrides = data.profile.teacher_overrides
-        l.updated_at = datetime.now(timezone.utc)
-        return l
+                profile.teacher_overrides = data.profile.teacher_overrides
+        learner.updated_at = datetime.now(UTC)
+        return learner
 
-    async def delete(self, learner_id: uuid.UUID, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> bool:
-        l = in_memory_learners.get(learner_id)
-        if not l:
+    async def delete(
+        self,
+        learner_id: uuid.UUID,
+        teacher_id: uuid.UUID | None = None,
+        is_admin: bool = False,
+    ) -> bool:
+        learner = in_memory_learners.get(learner_id)
+        if not learner:
             return False
-        if not is_admin and teacher_id is not None and l.teacher_id != teacher_id:
+        if not is_admin and teacher_id is not None and learner.teacher_id != teacher_id:
             return False
         del in_memory_learners[learner_id]
         return True
 
-    async def add_observation(self, learner_id: uuid.UUID, observation: LearnerObservationCreate, teacher_id: uuid.UUID | None = None, is_admin: bool = False) -> dict[str, Any] | None:
-        l = in_memory_learners.get(learner_id)
-        if not l or not l.profile:
+    async def add_observation(
+        self,
+        learner_id: uuid.UUID,
+        observation: LearnerObservationCreate,
+        teacher_id: uuid.UUID | None = None,
+        is_admin: bool = False,
+    ) -> dict[str, Any] | None:
+        learner = in_memory_learners.get(learner_id)
+        if not learner or not learner.profile:
             return None
-        if not is_admin and teacher_id is not None and l.teacher_id != teacher_id:
+        if not is_admin and teacher_id is not None and learner.teacher_id != teacher_id:
             return None
         obs_item = {
             "id": str(uuid.uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "category": observation.category,
             "summary": observation.summary,
             "context": observation.context or {},
             "teacher_note": observation.teacher_note,
         }
-        obs = list(l.profile.observations)
+        obs = list(learner.profile.observations)
         obs.append(obs_item)
-        l.profile.observations = obs
+        learner.profile.observations = obs
         return obs_item
 
+
+class MockActivityService:
+    def __init__(self) -> None:
+        self.service = ActivityService(session=AsyncMock())
+        self.activities: dict[uuid.UUID, Activity] = {}
+
+    async def generate_activity(
+        self,
+        request: ActivityGenerateRequest,
+        current_user: User | None = None,
+    ) -> ActivityGenerateResponse:
+        oid = request.objective_id
+        obj: dict[str, Any] | None = None
+        if oid == obj1_id:
+            obj = obj1_dict
+        elif oid == obj2_id:
+            obj = obj2_dict
+
+        title = "Numeracy Practice"
+        desc = "Foundational practice."
+        diff = 1
+
+        if obj:
+            title_dict = obj.get("title")
+            if isinstance(title_dict, dict):
+                title = str(title_dict.get("en", "Demo Objective"))
+            desc_dict = obj.get("description")
+            if isinstance(desc_dict, dict):
+                desc = str(desc_dict.get("en", "Practice counting"))
+            diff = int(obj.get("difficulty_level", 1))
+
+        if request.difficulty_level is not None:
+            diff = request.difficulty_level
+
+        act_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
+
+        activity = create_fallback_activity(
+            objective_id=oid,
+            objective_title=title,
+            objective_description=desc,
+            difficulty_level=diff,
+            activity_type=act_type,
+            language=request.language,
+        )
+        self.activities[activity.id] = activity
+
+        return ActivityGenerateResponse(
+            activity=activity,
+            fallback_used=True,
+            generation_source="dev_mock_engine",
+            learner_id=request.learner_id,
+            objective_id=oid,
+        )
+
+    async def get_activity(self, activity_id: uuid.UUID) -> Activity | None:
+        return self.activities.get(activity_id)
+
+    async def evaluate_submission(
+        self,
+        request: ActivitySubmissionRequest,
+    ) -> ActivityEvaluationResponse:
+        if request.activity_content is None and request.activity_id in self.activities:
+            request = request.model_copy(
+                update={"activity_content": self.activities[request.activity_id].content}
+            )
+        return await self.service.evaluate_submission(request=request)
+
+
+class MockAnalyticsService:
+    """In-memory telemetry and performance event registry for development."""
+
+    def __init__(self) -> None:
+        self.events: list[PerformanceEvent] = []
+        self.attempts: list[ActivityAttempt] = []
+
+    async def record_performance_event(
+        self,
+        event_in: PerformanceEventCreate,
+    ) -> PerformanceEvent:
+        event = PerformanceEvent(
+            id=uuid.uuid4(),
+            learner_id=event_in.learner_id,
+            activity_id=event_in.activity_id,
+            attempt_id=event_in.attempt_id,
+            objective_id=event_in.objective_id,
+            activity_type=event_in.activity_type.value,
+            modality=event_in.modality.value,
+            strategy=event_in.strategy.value,
+            correct=event_in.correct,
+            score=event_in.score,
+            attempts=event_in.attempts,
+            response_time_ms=event_in.response_time_ms,
+            hints_used=event_in.hints_used,
+            assistance_level=event_in.assistance_level,
+            completed=event_in.completed,
+            difficulty=event_in.difficulty,
+            event_metadata=event_in.metadata,
+            timestamp=event_in.timestamp or datetime.now(UTC),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        self.events.append(event)
+        return event
+
+    async def record_activity_attempt(
+        self,
+        attempt_in: ActivityAttemptCreate,
+    ) -> ActivityAttempt:
+        attempt = ActivityAttempt(
+            id=uuid.uuid4(),
+            activity_id=attempt_in.activity_id,
+            learner_id=attempt_in.learner_id,
+            session_id=attempt_in.session_id,
+            started_at=attempt_in.started_at or datetime.now(UTC),
+            completed_at=attempt_in.completed_at,
+            response_data=attempt_in.response_data,
+            score=attempt_in.score,
+            completed=attempt_in.completed,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+        self.attempts.append(attempt)
+        return attempt
+
+    async def get_learner_events(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+        filters: PerformanceEventQueryFilter | None = None,
+    ) -> list[PerformanceEvent]:
+        matching = [e for e in self.events if e.learner_id == learner_id]
+        if filters:
+            if filters.activity_type:
+                matching = [e for e in matching if e.activity_type == filters.activity_type.value]
+            if filters.objective_id:
+                matching = [e for e in matching if e.objective_id == filters.objective_id]
+            if filters.correct is not None:
+                matching = [e for e in matching if e.correct == filters.correct]
+        return matching
+
+    async def get_event_by_id(
+        self,
+        event_id: uuid.UUID,
+        requesting_user: User | None = None,
+    ) -> PerformanceEvent:
+        for e in self.events:
+            if e.id == event_id:
+                return e
+        from app.core.errors import NotFoundError
+        raise NotFoundError(f"Performance event '{event_id}' not found.")
+
+
+_MOCK_ANALYTICS_INSTANCE = MockAnalyticsService()
 
 # Patch dependency overrides on FastAPI app
 async def override_get_db_session() -> AsyncGenerator[AsyncMock, None]:
     yield AsyncMock()
 
+
+from app.analytics.models import ActivityAttempt, PerformanceEvent
+from app.analytics.router import get_analytics_service
+from app.analytics.schemas import (
+    ActivityAttemptCreate,
+    PerformanceEventCreate,
+    PerformanceEventQueryFilter,
+)
+
 app.dependency_overrides[get_db_session] = override_get_db_session
 app.dependency_overrides[get_curriculum_service] = lambda: MockCurriculumService()
 app.dependency_overrides[get_learner_service] = lambda: MockLearnerService()
+app.dependency_overrides[get_activity_service] = lambda: MockActivityService()
+app.dependency_overrides[get_analytics_service] = lambda: _MOCK_ANALYTICS_INSTANCE
 
 # Patch UserService where imported
 patch("app.auth.router.UserService", return_value=MockUserService()).start()
@@ -451,6 +669,4 @@ patch("app.users.router.UserService", return_value=MockUserService()).start()
 patch("app.auth.dependencies.UserService", return_value=MockUserService()).start()
 
 if __name__ == "__main__":
-    print("Starting Eduvia Dev Mock Server on http://localhost:8000...")
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
-

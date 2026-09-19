@@ -147,16 +147,70 @@ export const healthApi = {
   detailed: () => get<HealthCheckResponse>('/health/detailed'),
 }
 
-/**
- * Future API namespaces — implemented in later phases:
- *
- * export const authApi = { ... }          // Phase 1
- * export const learnersApi = { ... }      // Phase 3
- * export const curriculumApi = { ... }    // Phase 2
- * export const activitiesApi = { ... }    // Phase 4
- * export const analyticsApi = { ... }     // Phase 7
- * export const recommendationsApi = { ... } // Phase 8
- */
+// ── Activities API (Phase 4 & 5) ──────────────────────────────────────────
+
+export const activitiesApi = {
+  /** Generate a structured learning activity */
+  generate: (data: {
+    objective_id: string
+    learner_id?: string | null
+    activity_type?: string | null
+    difficulty_level?: number | null
+    language?: string
+  }) =>
+    post<{
+      activity: import('@/types').Activity
+      fallback_used: boolean
+      generation_source: string
+      learner_id?: string | null
+      objective_id: string
+    }>('/activities/generate', data),
+
+  /** Retrieve an activity by ID */
+  getById: (activityId: string) =>
+    get<import('@/types').Activity>(`/activities/${activityId}`),
+
+  /** Evaluate a learner submission authoritatively */
+  evaluate: (data: import('@/types').ActivitySubmissionRequest) =>
+    post<import('@/types').ActivityEvaluationResponse>('/activities/evaluate', data),
+
+  /** List supported activity types */
+  listTypes: () =>
+    get<Array<{ type: string; name: string; description: string; primary_modality: string }>>(
+      '/activities/types'
+    ),
+}
+
+// ── Analytics API (Phase 6) ───────────────────────────────────────────
+
+export const analyticsApi = {
+  /** Record a performance telemetry event */
+  recordEvent: (event: import('@/types').PerformanceEvent) =>
+    post<import('@/types').PerformanceEvent>('/analytics/events', event),
+
+  /** Record an activity attempt session */
+  recordAttempt: (attempt: Partial<import('@/types').ActivityAttempt> & { activity_id: string; learner_id: string }) =>
+    post<import('@/types').ActivityAttempt>('/analytics/attempts', attempt),
+
+  /** Query performance events for a learner */
+  getLearnerEvents: (
+    learnerId: string,
+    params?: {
+      activity_type?: string
+      objective_id?: string
+      correct?: boolean
+      limit?: number
+      offset?: number
+    }
+  ) =>
+    get<import('@/types').PerformanceEvent[]>(`/analytics/learners/${learnerId}/events`, {
+      params,
+    }),
+
+  /** Get a single performance event by ID */
+  getEventById: (eventId: string) =>
+    get<import('@/types').PerformanceEvent>(`/analytics/events/${eventId}`),
+}
 
 export const api = {
   get,
@@ -165,7 +219,10 @@ export const api = {
   patch,
   delete: del,
   health: healthApi,
+  activities: activitiesApi,
+  analytics: analyticsApi,
   client: apiClient,
 }
 
 export default api
+
