@@ -81,6 +81,41 @@ steps:
       - "--platform=managed"
       - "--allow-unauthenticated"
 
+  # ── 7. Build Remote MCP Image ───────────────────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "build-mcp"
+    args:
+      - "build"
+      - "-f"
+      - "tools/eduvia_mcp/Dockerfile"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-mcp:$COMMIT_SHA"
+      - "-t"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-mcp:latest"
+      - "."
+
+  # ── 8. Push MCP Image to Artifact Registry ──────────────────────────────────
+  - name: "gcr.io/cloud-builders/docker"
+    id: "push-mcp-images"
+    args:
+      - "push"
+      - "--all-tags"
+      - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-mcp"
+
+  # ── 9. Deploy MCP to Cloud Run ──────────────────────────────────────────────
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy-mcp"
+    entrypoint: "gcloud"
+    args:
+      - "run"
+      - "deploy"
+      - "eduvia-mcp-$_ENV"
+      - "--image=$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-mcp:$COMMIT_SHA"
+      - "--region=$_REGION"
+      - "--platform=managed"
+      - "--port=8080"
+      - "--allow-unauthenticated"
+
 substitutions:
   _REGION: "us-central1"
   _ENV: "production"
@@ -88,6 +123,7 @@ substitutions:
 images:
   - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-backend:$COMMIT_SHA"
   - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-frontend:$COMMIT_SHA"
+  - "$_REGION-docker.pkg.dev/$PROJECT_ID/eduvia-containers/eduvia-mcp:$COMMIT_SHA"
 
 options:
   logging: CLOUD_LOGGING_ONLY

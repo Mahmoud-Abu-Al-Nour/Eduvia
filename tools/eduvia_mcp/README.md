@@ -1,36 +1,38 @@
 # Eduvia MCP Server
 
-Local developer Model Context Protocol (MCP) server providing focused repository inspection and verification tools for Eduvia without scanning the whole codebase.
+Developer Model Context Protocol (MCP) server providing focused repository inspection and verification tools for Eduvia without repeated full-codebase scans.
 
-## Features
+## Transport Modes
 
-* **Strict Path Security**: All filesystem operations are strictly resolved within `EDUVIA_ROOT` with path traversal protections. Sensitive credentials (`.env*`, `*.pem`, `*.key`, `secrets*`, `credentials*`, `service-account*`) and internal build/dependency directories (`node_modules`, `.venv`, `.git`, `dist`, `build`, `__pycache__`) are blocked from inspection.
-* **Bounded Searches & Reads**: Text search and file inspection with line-numbering, capped outputs, and size checks.
-* **Read-Only Git Integration**: Non-mutating `git_status` and `git_diff` queries.
-* **Allowlisted Test & Verification Commands**: Hardcoded, fixed command execution for test regression, type-checking, and frontend builds without generic shell access.
+The server supports dual transports using the official MCP Python SDK v2 (`mcp==2.2.0`):
 
-## Available Tools
+1. **Local Stdio Transport** (default): For local IDEs, Antigravity CLI, or Codex agents over standard input/output pipes.
+2. **Remote Streamable HTTP Transport**: For remote cloud hosting (Google Cloud Run) on `0.0.0.0:${PORT}` exposing `/mcp` and `/health`.
+
+## Available Tools (11 Allowlisted)
 
 1. `project_context`: Return concise summary of project metadata, architecture, locked phases, and boundaries.
 2. `search_project`: Search text files across the repository for a query string, ignoring build/dependency folders.
 3. `read_project_file`: Read file content from within the repository with line numbers (protected against traversal and secrets).
 4. `list_project_files`: List files and directories in a given project folder, ignoring dependency and build directories.
-5. `git_status`: Return read-only Git status including current branch, HEAD commit, upstream, and short status.
+5. `git_status`: Return repository and develop branch status information.
 6. `git_diff`: Return bounded Git diff information without modifying Git state.
-7. `run_backend_tests`: Run backend pytest regression suite (`pytest backend/tests/ -q`) and return structured execution result.
-8. `run_frontend_tests`: Run frontend test suite (`npm test` in `frontend/`) and return structured execution result.
-9. `run_typecheck`: Run frontend TypeScript check (`npm run type-check` in `frontend/`) and return structured execution result.
-10. `run_build`: Run frontend production build (`npm run build` in `frontend/`) and return structured execution result.
+7. `run_backend_tests`: Run backend pytest regression suite (`pytest backend/tests/ -q`) with in-process concurrency protection.
+8. `run_frontend_tests`: Run frontend test suite (`npm test` in `frontend/`) with in-process concurrency protection.
+9. `run_typecheck`: Run frontend TypeScript check (`npm run type-check` in `frontend/`) with in-process concurrency protection.
+10. `run_build`: Run frontend production build (`npm run build` in `frontend/`) with in-process concurrency protection.
 11. `verify_project`: Sequentially run backend tests, frontend tests, type-check, and build, returning complete verification result.
 
-## Host Configuration
+## Setup Instructions
 
-To register the server in your MCP host (e.g. Antigravity, Claude Desktop, or Cursor), refer to `mcp_config.example.json`:
+### 1. Local Stdio Configuration
+
+In your MCP host configuration (`~/.gemini/config/mcp_config.json` or `.agents/mcp_config.json`):
 
 ```json
 {
   "mcpServers": {
-    "eduvia": {
+    "eduvia-local": {
       "command": "uv",
       "args": [
         "run",
@@ -45,11 +47,35 @@ To register the server in your MCP host (e.g. Antigravity, Claude Desktop, or Cu
 }
 ```
 
-The server communicates via standard input/output (`stdio` transport).
+### 2. Remote Streamable HTTP Configuration
 
-## Running Tests
+When deployed to Google Cloud Run, configure your remote MCP client with:
 
-From the repository root:
+```json
+{
+  "mcpServers": {
+    "eduvia-remote": {
+      "serverUrl": "https://<YOUR-CLOUD-RUN-URL>/mcp"
+    }
+  }
+}
+```
+
+* **MCP Endpoint**: `POST /mcp` (Streamable HTTP, `text/event-stream` responses).
+* **Health Endpoint**: `GET /health` (returns `{"status": "ok", "service": "eduvia-mcp"}`).
+* **Port Binding**: Binds dynamically to `0.0.0.0:${PORT:-8080}`.
+* **Authentication**: Optional Bearer token authentication via `EDUVIA_MCP_AUTH_TOKEN` environment variable.
+
+## Security Model
+
+* **Zero Shell Execution**: No generic shell execution tools. All commands (`pytest`, `npm test`, `npm run build`) are hard-coded with bounded timeouts.
+* **Path Traversal Guards**: Every filesystem path is strictly resolved within `EDUVIA_ROOT`. Traversal attempts (`..`) or external paths are rejected.
+* **Secret Protection**: `.env*`, `*.pem`, `*.key`, `secrets*`, `credentials*`, and `service-account*` files are strictly protected from inspection.
+* **Concurrency Protection**: Thread locks prevent simultaneous heavy test/build executions to guard against resource exhaustion.
+
+## Testing
+
+Run the MCP test suite from the repository root:
 
 ```powershell
 .\tools\eduvia_mcp\.venv\Scripts\python.exe -m pytest tools/eduvia_mcp/tests/ -v

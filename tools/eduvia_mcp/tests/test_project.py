@@ -230,16 +230,10 @@ def test_run_build_mocked(mock_run):
     assert "build" in args[0]
 
 
-@patch("eduvia_mcp.project.run_backend_tests_suite")
-@patch("eduvia_mcp.project.run_frontend_tests_suite")
-@patch("eduvia_mcp.project.run_typecheck_suite")
-@patch("eduvia_mcp.project.run_build_suite")
-def test_verify_project_suite_mocked(mock_build, mock_typecheck, mock_fe, mock_be):
+@patch("eduvia_mcp.project._run_command")
+def test_verify_project_suite_mocked(mock_run):
     """Verify verify_project_suite chains all 4 checks."""
-    mock_be.return_value = {"success": True, "exit_code": 0, "stdout": "ok", "stderr": "", "duration_seconds": 1.0}
-    mock_fe.return_value = {"success": True, "exit_code": 0, "stdout": "ok", "stderr": "", "duration_seconds": 1.0}
-    mock_typecheck.return_value = {"success": True, "exit_code": 0, "stdout": "ok", "stderr": "", "duration_seconds": 1.0}
-    mock_build.return_value = {"success": True, "exit_code": 0, "stdout": "ok", "stderr": "", "duration_seconds": 1.0}
+    mock_run.return_value = {"success": True, "exit_code": 0, "stdout": "ok", "stderr": "", "duration_seconds": 1.0}
 
     res = project.verify_project_suite()
     assert res["all_passed"] is True
@@ -271,3 +265,82 @@ def test_all_11_tools_registered():
         "verify_project",
     }
     assert expected_tools == tool_names
+
+
+# ── Remote Streamable HTTP & Health Endpoint Tests ────────────────────────────
+def test_remote_health_endpoint():
+    """Verify unauthenticated GET /health returns 200 with service status."""
+    from starlette.testclient import TestClient
+    from eduvia_mcp.server import create_streamable_http_app
+
+    app = create_streamable_http_app()
+    with TestClient(app) as client:
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("status") == "ok"
+        assert data.get("service") == "eduvia-mcp"
+
+
+def test_remote_streamable_http_initialize():
+    """Verify POST /mcp initializes successfully over Streamable HTTP."""
+    from starlette.testclient import TestClient
+    from eduvia_mcp.server import create_streamable_http_app
+
+    app = create_streamable_http_app()
+    with TestClient(app) as client:
+        init_payload = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "test-remote-client", "version": "1.0.0"},
+            },
+        }
+        resp = client.post("/mcp", json=init_payload)
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+        assert "serverInfo" in resp.text
+        assert "eduvia" in resp.text
+
+
+def test_remote_auth_middleware():
+    """Verify optional Bearer token authentication behavior on /mcp and /health."""
+    from starlette.testclient import TestClient
+    from eduvia_mcp.server import create_streamable_http_app
+
+    app = create_streamable_http_app()
+    os.environ["EDUVIA_MCP_AUTH_TOKEN"] = "eval-token-123"
+
+    try:
+        with TestClient(app) as client:
+            # Health check must remain public
+            health_resp = client.get("/health")
+            assert health_resp.status_code == 200
+
+            # Unauthenticated request to /mcp rejected with 401
+            unauth_resp = client.post("/mcp")
+            assert unauth_resp.status_code == 401
+
+            # Authenticated request to /mcp accepted
+            init_payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-remote-client", "version": "1.0.0"},
+                },
+            }
+            auth_resp = client.post(
+                "/mcp",
+                headers={"Authorization": "Bearer eval-token-123"},
+                json=init_payload,
+            )
+            assert auth_resp.status_code == 200
+    finally:
+        os.environ.pop("EDUVIA_MCP_AUTH_TOKEN", None)
+

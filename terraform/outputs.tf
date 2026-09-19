@@ -17,3 +17,8 @@ output "artifact_registry_repo" {
   description = "Artifact Registry Docker repository"
   value       = google_artifact_registry_repository.eduvia_repo.name
 }
+
+output "mcp_url" {
+  description = "Public URL of the Eduvia MCP Cloud Run service"
+  value       = google_cloud_run_v2_service.mcp_service.uri
+}

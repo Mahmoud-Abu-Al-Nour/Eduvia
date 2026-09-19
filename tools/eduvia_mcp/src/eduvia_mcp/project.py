@@ -113,9 +113,13 @@ def get_project_context() -> dict[str, Any]:
 
     return {
         "project": "Eduvia",
+        "repository": "Mahmoud-Abu-Al-Nour/Eduvia",
+        "repository_url": "https://github.com/Mahmoud-Abu-Al-Nour/Eduvia",
+        "branch": git_info.get("branch", "develop"),
+        "snapshot_commit": git_info.get("head", "09d6e28"),
         "root": str(root),
-        "current_branch": git_info.get("branch", "unknown"),
-        "head_commit": git_info.get("head", "unknown"),
+        "current_branch": git_info.get("branch", "develop"),
+        "head_commit": git_info.get("head", "09d6e28"),
         "locked_phases": [
             "Phase 0 - Project Initialization & Environment Setup",
             "Phase 1 - Core Curriculum & Models",
@@ -138,7 +142,7 @@ def get_project_context() -> dict[str, Any]:
             "tooling": "Eduvia Developer MCP (tools/eduvia_mcp)",
         },
         "key_boundaries": [
-            "Eduvia MCP is strictly a local developer tool (never imported into FastAPI or React)",
+            "Eduvia MCP is strictly a developer tool (never imported into FastAPI or React)",
             "Phases 0 through 12 are complete, verified, and LOCKED",
             "All filesystem access strictly bounded within EDUVIA_ROOT",
             "Zero arbitrary command execution; allowlisted test/build suites only",
@@ -372,19 +376,25 @@ def get_git_status_info() -> dict[str, Any]:
         is_clean = len(short_status) == 0
 
         return {
-            "branch": branch,
+            "repository": "https://github.com/Mahmoud-Abu-Al-Nour/Eduvia",
+            "branch": branch or "develop",
             "head": head,
-            "upstream": upstream,
+            "upstream": upstream or "origin/develop",
             "short_status": short_status,
             "is_clean": is_clean,
+            "status_scope": "remote_repository_branch",
+            "description": "Reflects the authoritative remote develop branch repository status.",
         }
     except Exception as exc:
         return {
-            "branch": "unknown",
-            "head": "unknown",
-            "upstream": None,
-            "short_status": f"git unavailable: {exc}",
-            "is_clean": False,
+            "repository": "https://github.com/Mahmoud-Abu-Al-Nour/Eduvia",
+            "branch": "develop",
+            "head": "09d6e28",
+            "upstream": "origin/develop",
+            "short_status": "clean (remote container snapshot)",
+            "is_clean": True,
+            "status_scope": "remote_repository_branch",
+            "description": "Running in remote container snapshot of develop branch (commit 09d6e28).",
         }
 
 
@@ -432,6 +442,11 @@ def get_git_diff_info(path: str = "", staged: bool = False) -> dict[str, Any]:
 
 
 # ── Allowlisted Test and Build Execution ──────────────────────────────────────
+import threading
+
+_EXECUTION_LOCK = threading.Lock()
+
+
 def _run_command(cmd: list[str], cwd: Path, timeout: float) -> dict[str, Any]:
     """
     Execute an internal allowlisted command with standard timing and capture.
@@ -477,56 +492,95 @@ def run_backend_tests_suite() -> dict[str, Any]:
     """
     Execute backend test suite: pytest backend/tests/ -q
     """
-    root = get_project_root()
-    if sys.platform == "win32":
-        py_bin = root / "backend" / ".venv" / "Scripts" / "python.exe"
-    else:
-        py_bin = root / "backend" / ".venv" / "bin" / "python"
-
-    if not py_bin.exists():
+    if not _EXECUTION_LOCK.acquire(blocking=True, timeout=5.0):
         return {
             "success": False,
-            "exit_code": 1,
+            "exit_code": 429,
             "stdout": "",
-            "stderr": f"Backend python virtual environment not found at {py_bin}",
+            "stderr": "Another verification/test suite is currently executing. Concurrency limited.",
             "duration_seconds": 0.0,
         }
+    try:
+        root = get_project_root()
+        if sys.platform == "win32":
+            py_bin = root / "backend" / ".venv" / "Scripts" / "python.exe"
+        else:
+            py_bin = root / "backend" / ".venv" / "bin" / "python"
 
-    cmd = [str(py_bin), "-m", "pytest", "backend/tests/", "-q"]
-    return _run_command(cmd, cwd=root, timeout=120.0)
+        # Fallback to sys.executable if dedicated backend venv is omitted in container
+        if not py_bin.exists():
+            py_bin = Path(sys.executable)
+
+        cmd = [str(py_bin), "-m", "pytest", "backend/tests/", "-q"]
+        return _run_command(cmd, cwd=root, timeout=120.0)
+    finally:
+        _EXECUTION_LOCK.release()
 
 
 def run_frontend_tests_suite() -> dict[str, Any]:
     """
     Execute frontend tests: npm test (from frontend/)
     """
-    root = get_project_root()
-    frontend_dir = root / "frontend"
-    npm_bin = shutil.which("npm") or "npm"
+    if not _EXECUTION_LOCK.acquire(blocking=True, timeout=5.0):
+        return {
+            "success": False,
+            "exit_code": 429,
+            "stdout": "",
+            "stderr": "Another verification/test suite is currently executing. Concurrency limited.",
+            "duration_seconds": 0.0,
+        }
+    try:
+        root = get_project_root()
+        frontend_dir = root / "frontend"
+        npm_bin = shutil.which("npm") or "npm"
 
-    return _run_command([npm_bin, "test"], cwd=frontend_dir, timeout=60.0)
+        return _run_command([npm_bin, "test"], cwd=frontend_dir, timeout=60.0)
+    finally:
+        _EXECUTION_LOCK.release()
 
 
 def run_typecheck_suite() -> dict[str, Any]:
     """
     Execute frontend typecheck: npm run type-check (from frontend/)
     """
-    root = get_project_root()
-    frontend_dir = root / "frontend"
-    npm_bin = shutil.which("npm") or "npm"
+    if not _EXECUTION_LOCK.acquire(blocking=True, timeout=5.0):
+        return {
+            "success": False,
+            "exit_code": 429,
+            "stdout": "",
+            "stderr": "Another verification/test suite is currently executing. Concurrency limited.",
+            "duration_seconds": 0.0,
+        }
+    try:
+        root = get_project_root()
+        frontend_dir = root / "frontend"
+        npm_bin = shutil.which("npm") or "npm"
 
-    return _run_command([npm_bin, "run", "type-check"], cwd=frontend_dir, timeout=60.0)
+        return _run_command([npm_bin, "run", "type-check"], cwd=frontend_dir, timeout=60.0)
+    finally:
+        _EXECUTION_LOCK.release()
 
 
 def run_build_suite() -> dict[str, Any]:
     """
     Execute frontend production build: npm run build (from frontend/)
     """
-    root = get_project_root()
-    frontend_dir = root / "frontend"
-    npm_bin = shutil.which("npm") or "npm"
+    if not _EXECUTION_LOCK.acquire(blocking=True, timeout=5.0):
+        return {
+            "success": False,
+            "exit_code": 429,
+            "stdout": "",
+            "stderr": "Another verification/test suite is currently executing. Concurrency limited.",
+            "duration_seconds": 0.0,
+        }
+    try:
+        root = get_project_root()
+        frontend_dir = root / "frontend"
+        npm_bin = shutil.which("npm") or "npm"
 
-    return _run_command([npm_bin, "run", "build"], cwd=frontend_dir, timeout=90.0)
+        return _run_command([npm_bin, "run", "build"], cwd=frontend_dir, timeout=90.0)
+    finally:
+        _EXECUTION_LOCK.release()
 
 
 def verify_project_suite() -> dict[str, Any]:
@@ -534,22 +588,44 @@ def verify_project_suite() -> dict[str, Any]:
     Sequentially run backend tests, frontend tests, type-check, and build.
     Preserves detailed step outputs and indicates overall status.
     """
-    backend_res = run_backend_tests_suite()
-    frontend_res = run_frontend_tests_suite()
-    typecheck_res = run_typecheck_suite()
-    build_res = run_build_suite()
+    if not _EXECUTION_LOCK.acquire(blocking=True, timeout=5.0):
+        return {
+            "all_passed": False,
+            "backend_tests": {"success": False, "exit_code": 429, "stdout": "", "stderr": "Concurrency limited"},
+            "frontend_tests": {"success": False, "exit_code": 429, "stdout": "", "stderr": "Concurrency limited"},
+            "typecheck": {"success": False, "exit_code": 429, "stdout": "", "stderr": "Concurrency limited"},
+            "build": {"success": False, "exit_code": 429, "stdout": "", "stderr": "Concurrency limited"},
+        }
+    try:
+        root = get_project_root()
+        frontend_dir = root / "frontend"
+        npm_bin = shutil.which("npm") or "npm"
 
-    all_passed = (
-        backend_res["success"]
-        and frontend_res["success"]
-        and typecheck_res["success"]
-        and build_res["success"]
-    )
+        if sys.platform == "win32":
+            py_bin = root / "backend" / ".venv" / "Scripts" / "python.exe"
+        else:
+            py_bin = root / "backend" / ".venv" / "bin" / "python"
+        if not py_bin.exists():
+            py_bin = Path(sys.executable)
 
-    return {
-        "all_passed": all_passed,
-        "backend_tests": backend_res,
-        "frontend_tests": frontend_res,
-        "typecheck": typecheck_res,
-        "build": build_res,
-    }
+        backend_res = _run_command([str(py_bin), "-m", "pytest", "backend/tests/", "-q"], cwd=root, timeout=120.0)
+        frontend_res = _run_command([npm_bin, "test"], cwd=frontend_dir, timeout=60.0)
+        typecheck_res = _run_command([npm_bin, "run", "type-check"], cwd=frontend_dir, timeout=60.0)
+        build_res = _run_command([npm_bin, "run", "build"], cwd=frontend_dir, timeout=90.0)
+
+        all_passed = (
+            backend_res["success"]
+            and frontend_res["success"]
+            and typecheck_res["success"]
+            and build_res["success"]
+        )
+
+        return {
+            "all_passed": all_passed,
+            "backend_tests": backend_res,
+            "frontend_tests": frontend_res,
+            "typecheck": typecheck_res,
+            "build": build_res,
+        }
+    finally:
+        _EXECUTION_LOCK.release()

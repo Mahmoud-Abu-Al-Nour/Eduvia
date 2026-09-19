@@ -159,3 +159,63 @@ resource "google_cloud_run_v2_service_iam_member" "frontend_public_invoker" {
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
+
+# ── Eduvia MCP Cloud Run Service (Streamable HTTP) ──────────────────────────
+resource "google_cloud_run_v2_service" "mcp_service" {
+  depends_on = [google_project_service.enabled_services]
+  name       = "eduvia-mcp-${var.environment}"
+  location   = var.region
+  ingress    = "INGRESS_TRAFFIC_ALL"
+
+  template {
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 3
+    }
+
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/eduvia-containers/eduvia-mcp:latest"
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "1Gi"
+        }
+      }
+
+      env {
+        name  = "PORT"
+        value = "8080"
+      }
+
+      env {
+        name  = "EDUVIA_MCP_TRANSPORT"
+        value = "streamable-http"
+      }
+
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        initial_delay_seconds = 5
+        period_seconds        = 10
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        period_seconds = 30
+      }
+    }
+  }
+}
+
+resource "google_cloud_run_v2_service_iam_member" "mcp_public_invoker" {
+  location = google_cloud_run_v2_service.mcp_service.location
+  name     = google_cloud_run_v2_service.mcp_service.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}

@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "eduvia": {
+    "eduvia-local": {
       "command": "uv",
       "args": [
         "run",
@@ -10,6 +10,9 @@
         "-m",
         "eduvia_mcp"
       ]
+    },
+    "eduvia-remote": {
+      "serverUrl": "https://<YOUR-CLOUD-RUN-URL>/mcp"
     }
   }
 }

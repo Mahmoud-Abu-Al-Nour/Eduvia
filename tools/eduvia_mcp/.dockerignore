@@ -1,0 +1,16 @@
+.git
+.venv
+backend/.venv
+tools/eduvia_mcp/.venv
+node_modules
+frontend/node_modules
+frontend/dist
+frontend/build
+.env
+.env.*
+secrets
+*.pem
+*.key
+__pycache__
+.pytest_cache
+Eduvia Notes
