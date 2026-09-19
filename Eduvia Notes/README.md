@@ -101,21 +101,21 @@ Eduvia Notes/
 Depending on your role and focus, start with the following entry points:
 
 ### For Technical Reviewers & Evaluators
-1. **[Eduvia Project Overview & Technical Abstract.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Project%20Overview%20&%20Technical%20Abstract.md)**: High-level abstract, technical stack summary, and core deliverables.
-2. **[Eduvia Architecture & System Design.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Architecture%20&%20System%20Design.md)**: Modular monolith topology, domain boundaries, and persistence model.
-3. **[Eduvia Testing & Verification.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Testing%20&%20Verification.md)**: Automated test breakdown across the 217 backend tests, 13 frontend tests, and 35 MCP tests.
-4. **[Current Status.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/00%20-%20MOC/Current%20Status.md)**: Up-to-date milestone scorecard verifying that Phases 0 through 12 and the MCP server are completely locked.
+1. **[Eduvia Project Overview & Technical Abstract](Eduvia%20Project%20Overview%20&%20Technical%20Abstract.md)**: High-level abstract, technical stack summary, and core deliverables.
+2. **[Eduvia Architecture & System Design](Eduvia%20Architecture%20&%20System%20Design.md)**: Modular monolith topology, domain boundaries, and persistence model.
+3. **[Eduvia Testing & Verification](Eduvia%20Testing%20&%20Verification.md)**: Automated test breakdown across the 217 backend tests, 13 frontend tests, and 35 MCP tests.
+4. **[Current Status](00%20-%20MOC/Current%20Status.md)**: Up-to-date milestone scorecard verifying that Phases 0 through 12 and the MCP server are completely locked.
 
 ### For Software Engineers & Contributors
-1. **[Eduvia Learning & Personalization Approach.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Learning%20&%20Personalization%20Approach.md)**: Modality schemas, server-side grading rules, and telemetry models.
-2. **[Eduvia AI & RAG Technical Approach.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20AI%20&%20RAG%20Technical%20Approach.md)**: Prompt engineering, Qdrant vector retrieval, and fallback mechanisms.
-3. **[Eduvia Production & Cloud Deployment.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Production%20&%20Cloud%20Deployment.md)**: Terraform files, Cloud Run configurations, Dockerfiles, and CI/CD pipelines.
-4. **[Eduvia Project MCP.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Project%20MCP.md)**: Developer tooling instructions for running the Model Context Protocol server.
+1. **[Eduvia Learning & Personalization Approach](Eduvia%20Learning%20&%20Personalization%20Approach.md)**: Modality schemas, server-side grading rules, and telemetry models.
+2. **[Eduvia AI & RAG Technical Approach](Eduvia%20AI%20&%20RAG%20Technical%20Approach.md)**: Prompt engineering, Qdrant vector retrieval, and fallback mechanisms.
+3. **[Eduvia Production & Cloud Deployment](Eduvia%20Production%20&%20Cloud%20Deployment.md)**: Terraform files, Cloud Run configurations, Dockerfiles, and CI/CD pipelines.
+4. **[Eduvia Project MCP](Eduvia%20Project%20MCP.md)**: Developer tooling instructions for running the Model Context Protocol server.
 
 ### For Educators & Pedagogical Supervisors
-1. **[Problem Statement.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/01%20-%20Product/Problem%20Statement.md)**: The educational challenges Eduvia addresses.
-2. **[Eduvia Accessibility & Cognitive Calm.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20Accessibility%20&%20Cognitive%20Calm.md)**: Sensory accommodation features and WCAG 2.1 AA accessibility.
-3. **[Eduvia User Workflows.md](file:///c:/Users/soham/Desktop/ahmed/Eduvia/Eduvia%20Notes/Eduvia%20User%20Workflows.md)**: Teacher and learner workflows, including classroom cohort management and IEP progress reporting.
+1. **[Problem Statement](01%20-%20Product/Problem%20Statement.md)**: The educational challenges Eduvia addresses.
+2. **[Eduvia Accessibility & Cognitive Calm](Eduvia%20Accessibility%20&%20Cognitive%20Calm.md)**: Sensory accommodation features and WCAG 2.1 AA accessibility.
+3. **[Eduvia User Workflows](Eduvia%20User%20Workflows.md)**: Teacher and learner workflows, including classroom cohort management and IEP progress reporting.
 
 ---
 

@@ -23,7 +23,7 @@ According to the Eduvia Master Development Roadmap, Architecture, and Data Model
 ### What Already Existed
 * **Phase 3 Learner Profiles**: `Learner` model (`learners` table) with `teacher_id` relationship and active status flags.
 * **Phase 4 Activity Engine**: Modalities, schemas, AI orchestrator, and fallback generation engine.
-* **Phase 5 Activity Evaluation**: Authoritative backend evaluation in [ActivityService.evaluate_submission()](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/activities/service.py), calculating `score`, `is_correct`, `mastery_achieved`, and `assistance_level`.
+* **Phase 5 Activity Evaluation**: Authoritative backend evaluation in `ActivityService.evaluate_submission()` (`backend/app/activities/service.py`), calculating `score`, `is_correct`, `mastery_achieved`, and `assistance_level`.
 * **Database Infrastructure**: SQLAlchemy async engine, `EduviaBase` with UUID PKs and timestamp mixins, and Alembic migration framework.
 * **Auth Framework**: JWT Bearer token authentication and role-based dependencies (`get_current_user`, `get_current_active_admin`).
 
@@ -37,11 +37,11 @@ According to the Eduvia Master Development Roadmap, Architecture, and Data Model
 * Frontend TypeScript types and API service integration for telemetry endpoints.
 
 ### What Was Reused
-* Base database models from [app.database.base.EduviaBase](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/database/base.py).
-* Curriculum objective models from [app.curriculum.models.LearningObjective](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/curriculum/models.py).
-* Learner models from [app.learners.models.Learner](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/learners/models.py).
-* Error handling conventions from [app.core.errors](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/core/errors.py) (`AuthorizationError`, `NotFoundError`, `ValidationError`).
-* API routing conventions in [app.api.v1.router](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/api/v1/router.py).
+* Base database models from `app.database.base.EduviaBase` (`backend/app/database/base.py`).
+* Curriculum objective models from `app.curriculum.models.LearningObjective` (`backend/app/curriculum/models.py`).
+* Learner models from `app.learners.models.Learner` (`backend/app/learners/models.py`).
+* Error handling conventions from `app.core.errors` (`backend/app/core/errors.py`) (`AuthorizationError`, `NotFoundError`, `ValidationError`).
+* API routing conventions in `app.api.v1.router` (`backend/app/api/v1/router.py`).
 
 ### What Was Intentionally Left Untouched
 * Phase 3 Learner Profile management and observation persistence.
@@ -52,31 +52,31 @@ According to the Eduvia Master Development Roadmap, Architecture, and Data Model
 
 ## 3. Implemented Components
 
-1. **Database Models** ([backend/app/analytics/models.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/models.py)):
+1. **Database Models** (`backend/app/analytics/models.py`):
    * `PerformanceEvent`: Stores immutable telemetry events with foreign keys to `learners(id)` and `learning_objectives(id)`, indexing `(learner_id, timestamp)`, `(activity_id, timestamp)`, `(objective_id)`, and `(activity_type)`.
    * `ActivityAttempt`: Stores session attempts linking learners, sessions, start/completion times, scores, and serialized response payloads.
-2. **Pydantic Schemas** ([backend/app/analytics/schemas.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/schemas.py)):
+2. **Pydantic Schemas** (`backend/app/analytics/schemas.py`):
    * `PerformanceEventCreate`: Strict validation (`extra="forbid"`), numeric bounds (`0 <= score <= 1`, `response_time_ms >= 0`, `0 <= assistance_level <= 3`, `attempts >= 1`, `hints_used >= 0`), and enums for `Modality` and `TeachingStrategy`.
    * `PerformanceEventRead`: Serializes database entities with alias mapping for metadata.
    * `ActivityAttemptCreate` / `ActivityAttemptRead`: Validated schemas for activity sessions.
    * `PerformanceEventQueryFilter`: Query parameters supporting filtering by `activity_type`, `objective_id`, `modality`, `correct`, with pagination bounds (`limit <= 100`).
-3. **Analytics Service Layer** ([backend/app/analytics/service.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/service.py)):
+3. **Analytics Service Layer** (`backend/app/analytics/service.py`):
    * `record_performance_event()`: Verifies learner exists and is active, validates learning objective if provided, auto-calculates incremental attempt count if omitted, sets UTC timestamps, and commits event.
    * `record_activity_attempt()`: Verifies learner exists and stores attempt record.
    * `get_learner_events()`: Applies filters, sorts newest-first, and enforces teacher ownership isolation (`learner.teacher_id == current_user.id` or `current_user.role == "admin"`).
    * `get_event_by_id()`: Retrieves single event with teacher ownership validation.
-4. **API Router** ([backend/app/analytics/router.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/router.py)):
+4. **API Router** (`backend/app/analytics/router.py`):
    * `POST /api/v1/analytics/events`: Ingests single telemetry event (201 Created).
    * `POST /api/v1/analytics/attempts`: Records activity session attempt (201 Created).
    * `GET /api/v1/analytics/learners/{learner_id}/events`: Returns filtered telemetry for a learner (200 OK, requires teacher/admin auth).
    * `GET /api/v1/analytics/events/{event_id}`: Returns event by ID (200 OK, requires teacher/admin auth).
-5. **Phase 5 Integration Hook** ([backend/app/activities/service.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/activities/service.py)):
+5. **Phase 5 Integration Hook** (`backend/app/activities/service.py`):
    * In `evaluate_submission()`, authoritative evaluation outcomes (`is_correct`, `score`, `assistance_level`, `response_time_ms`) automatically generate and persist a `PerformanceEventCreate` record when `learner_id` is supplied.
-6. **Mock Service for Dev Server** ([backend/dev_server.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/dev_server.py)):
+6. **Mock Service for Dev Server** (`backend/dev_server.py`):
    * In-memory `MockAnalyticsService` registered via `app.dependency_overrides[get_analytics_service]`.
 7. **Frontend API Client & Types**:
-   * [frontend/src/types/index.ts](file:///c:/Users/soham/Desktop/ahmed/Eduvia/frontend/src/types/index.ts): Expanded `PerformanceEvent` and added `ActivityAttempt`.
-   * [frontend/src/services/api.ts](file:///c:/Users/soham/Desktop/ahmed/Eduvia/frontend/src/services/api.ts): Added `analyticsApi` and exported `api.analytics`.
+   * `frontend/src/types/index.ts`: Expanded `PerformanceEvent` and added `ActivityAttempt`.
+   * `frontend/src/services/api.ts`: Added `analyticsApi` and exported `api.analytics`.
 
 ---
 

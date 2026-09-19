@@ -129,7 +129,7 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
 ### Phase 6 — Performance Tracking & Telemetry
 * **Objective**: Implement relational, persistent telemetry ingestion capturing granular interaction metrics and authoritative evaluation results.
 * **Scope & Delivery**:
-  * Relational models: `PerformanceEvent` and `ActivityAttempt` in [backend/app/analytics/models.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/models.py).
+  * Relational models: `PerformanceEvent` and `ActivityAttempt` in `backend/app/analytics/models.py`.
   * High-performance database indexing: `(learner_id, timestamp)`, `(activity_id, timestamp)`, `objective_id`, and `activity_type`.
   * Alembic migration `b4c5d6e7f8a9` (`create_analytics_tables`).
   * Strict Pydantic ingestion validation: `score` ($0.0 \le s \le 1.0$), `response_time_ms` ($\ge 0$), `assistance_level` ($0 \le a \le 3$), `hints_used`, and typed enums.
@@ -162,11 +162,11 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
 ### Phase 8 — Adaptive Learning Intelligence Engine
 * **Objective**: Introduce deterministic adaptive decision-making for next-objective recommendation, difficulty calibration, presentation modality selection, and pedagogical teaching strategy selection based on empirical interaction evidence from Phase 6 telemetry, Phase 7 mastery analytics, and teacher constraints.
 * **Scope & Delivery**:
-  * Deterministic rule-based `AdaptationEngine` in [backend/app/ai/adaptation/engine.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/ai/adaptation/engine.py).
+  * Deterministic rule-based `AdaptationEngine` in `backend/app/ai/adaptation/engine.py`.
   * Curriculum prerequisite graph traversal preventing recommendations of objectives whose prerequisites are not mastered.
   * Strict teacher override precedence (`lock_difficulty_level`, `enforce_strategy`) and teacher constraint enforcement (`excluded_modalities`, `required_modalities`).
   * Empirical evidence threshold (minimum 5 events) before switching away from learner profile default presentation modalities.
-  * Recommendation DTOs (`RecommendationDecision`, `AdaptiveNextActivityResponse`, `ProfileSyncResult`, `ConfidenceLevel`) in [backend/app/recommendations/schemas.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/recommendations/schemas.py).
+  * Recommendation DTOs (`RecommendationDecision`, `AdaptiveNextActivityResponse`, `ProfileSyncResult`, `ConfidenceLevel`) in `backend/app/recommendations/schemas.py`.
   * Recommendation service (`RecommendationService`) and REST router (`/api/v1/recommendations/learners/{id}`).
   * Unified next-activity generation connecting adaptive decisions directly to Phase 4 `ActivityService`.
   * Learner profile effectiveness synchronization updating observed counts and success ratings without corrupting raw events.

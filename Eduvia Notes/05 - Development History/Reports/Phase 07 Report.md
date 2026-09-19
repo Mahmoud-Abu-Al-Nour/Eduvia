@@ -29,11 +29,11 @@ According to the Eduvia Master Development Roadmap, Architecture, and Data Model
 * 128/128 green backend test baseline and clean frontend build.
 
 ### Reused Components
-* `PerformanceEvent` in [backend/app/analytics/models.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/models.py).
-* `LearningObjective` in [backend/app/curriculum/models.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/curriculum/models.py) with `assessment_criteria`.
-* `Learner` in [backend/app/learners/models.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/learners/models.py) with `teacher_id` relationship.
+* `PerformanceEvent` in `backend/app/analytics/models.py`.
+* `LearningObjective` in `backend/app/curriculum/models.py` with `assessment_criteria`.
+* `Learner` in `backend/app/learners/models.py` with `teacher_id` relationship.
 * JWT authentication dependencies (`get_current_user`, `get_current_active_admin`).
-* API routing conventions in [backend/app/analytics/router.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/router.py).
+* API routing conventions in `backend/app/analytics/router.py`.
 
 ### Missing Components (Implemented in Phase 7)
 * Pydantic schemas for summary, mastery, modality breakdown, and progress timeline.
@@ -49,7 +49,7 @@ According to the Eduvia Master Development Roadmap, Architecture, and Data Model
 
 ## 3. Implemented Components
 
-1. **Analytical Schemas** ([backend/app/analytics/schemas.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/schemas.py)):
+1. **Analytical Schemas** (`backend/app/analytics/schemas.py`):
    * `ModalityMetrics`: `modality`, `total_events`, `accuracy`, `avg_score`, `avg_response_time_ms`, `avg_assistance_level`.
    * `ActivityTypeMetrics`: `activity_type`, `total_events`, `accuracy`, `avg_score`.
    * `LearnerAnalyticsSummary`: `learner_id`, `total_events`, `completed_activities`, `overall_accuracy`, `avg_score`, `avg_response_time_ms`, `avg_hints_per_activity`, `avg_assistance_level`, `modality_breakdown`, `activity_type_breakdown`, `first_activity_at`, `last_activity_at`.
@@ -57,19 +57,19 @@ According to the Eduvia Master Development Roadmap, Architecture, and Data Model
    * `LearnerMasteryReport`: `learner_id`, `total_objectives_evaluated`, `mastered_count`, `in_progress_count`, `not_started_count`, `mastery_percentage`, `objectives`.
    * `ProgressDataPoint`: `date`, `events_count`, `accuracy`, `avg_score`.
    * `LearnerProgressReport`: `learner_id`, `total_days_active`, `data_points`.
-2. **Analytics Aggregation Engine** ([backend/app/analytics/service.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/service.py)):
+2. **Analytics Aggregation Engine** (`backend/app/analytics/service.py`):
    * `get_learner_summary()`: Dynamically aggregates performance across all attempts; groups by modality and activity type; produces empty-safe zero-state values when 0 events exist.
    * `get_learner_mastery()`: Evaluates each objective referenced by the learner's history against its specific `assessment_criteria` rubric; enforces that high assistance levels invalidate mastery even with 100% accuracy.
    * `get_learner_progress()`: Groups historical events into daily buckets (YYYY-MM-DD UTC) and calculates daily accuracy trajectory.
-3. **REST Endpoints** ([backend/app/analytics/router.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/app/analytics/router.py)):
+3. **REST Endpoints** (`backend/app/analytics/router.py`):
    * `GET /api/v1/analytics/learners/{learner_id}/summary` (200 OK).
    * `GET /api/v1/analytics/learners/{learner_id}/mastery` (200 OK).
    * `GET /api/v1/analytics/learners/{learner_id}/progress?days=30` (200 OK).
-4. **Dev Server Mocking** ([backend/dev_server.py](file:///c:/Users/soham/Desktop/ahmed/Eduvia/backend/dev_server.py)):
+4. **Dev Server Mocking** (`backend/dev_server.py`):
    * In-memory `MockAnalyticsService` implementations for all Phase 7 methods.
-5. **Frontend Analytics View** ([frontend/src/features/analytics/AnalyticsDashboard.tsx](file:///c:/Users/soham/Desktop/ahmed/Eduvia/frontend/src/features/analytics/AnalyticsDashboard.tsx)):
+5. **Frontend Analytics View** (`frontend/src/features/analytics/AnalyticsDashboard.tsx`):
    * Accessible, Cognitive Calm dashboard with student selector, summary KPI cards, objective mastery table, sensory modality efficacy cards, and longitudinal activity timeline.
-6. **Frontend Dashboard Integration** ([frontend/src/features/dashboard/DashboardPage.tsx](file:///c:/Users/soham/Desktop/ahmed/Eduvia/frontend/src/features/dashboard/DashboardPage.tsx), [frontend/src/app/App.tsx](file:///c:/Users/soham/Desktop/ahmed/Eduvia/frontend/src/app/App.tsx)):
+6. **Frontend Dashboard Integration** (`frontend/src/features/dashboard/DashboardPage.tsx`, `frontend/src/app/App.tsx`):
    * Sidebar navigation button "Analytics & Mastery" and `/analytics` protected route.
 
 ---
@@ -102,7 +102,7 @@ $$\text{Mastery Achieved} \iff \text{Accuracy} \ge \text{minimum\_accuracy} \qua
 
 ## 6. Frontend Analytics Dashboard
 
-* **Component**: [frontend/src/features/analytics/AnalyticsDashboard.tsx](file:///c:/Users/soham/Desktop/ahmed/Eduvia/frontend/src/features/analytics/AnalyticsDashboard.tsx)
+* **Component**: `frontend/src/features/analytics/AnalyticsDashboard.tsx`
 * **Design**: Conforms strictly to Cognitive Calm principles:
   * Soft indigo, teal, and slate color palettes.
   * No punitive red failure banners or jarring alarm counters.

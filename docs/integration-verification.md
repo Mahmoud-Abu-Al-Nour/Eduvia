@@ -149,7 +149,7 @@ The primary objective is confirming that the running system functions as a coher
 ---
 
 ## 16. Git Hygiene
-- **Repository Root**: `C:/Users/soham/Desktop/ahmed/Eduvia`
+- **Repository Root**: `Eduvia/` (Project Root)
 - **Ignored Directory**: `Eduvia Notes/` explicitly added to `.gitignore` and verified with `git status --ignored`.
 - **Zero Staged Secrets**: Staged area remains clean.
 
