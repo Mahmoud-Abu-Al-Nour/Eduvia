@@ -39,6 +39,7 @@ function App() {
         <Route path="/curriculum" element={<DashboardPage initialTab="curriculum" />} />
         <Route path="/learners" element={<DashboardPage initialTab="learners" />} />
         <Route path="/learners/:id" element={<DashboardPage initialTab="learners" />} />
+        <Route path="/analytics" element={<DashboardPage initialTab="analytics" />} />
       </Route>
       
       <Route path="*" element={<NotFoundPage />} />

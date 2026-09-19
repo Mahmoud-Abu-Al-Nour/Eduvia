@@ -133,3 +133,80 @@ class PerformanceEventQueryFilter(BaseModel):
     correct: bool | None = None
     limit: int = Field(default=50, ge=1, le=200)
     offset: int = Field(default=0, ge=0)
+
+
+# ── Phase 7: Learner Analytics & Mastery Schemas ──────────────────────────────
+
+
+class ModalityMetrics(BaseModel):
+    """Aggregated performance metrics for a specific sensory modality."""
+    modality: str
+    total_events: int = Field(ge=0)
+    accuracy: float = Field(ge=0.0, le=1.0)
+    avg_score: float = Field(ge=0.0, le=1.0)
+    avg_response_time_ms: float = Field(ge=0.0)
+    avg_assistance_level: float = Field(ge=0.0, le=3.0)
+
+
+class ActivityTypeMetrics(BaseModel):
+    """Aggregated performance metrics for an activity type."""
+    activity_type: str
+    total_events: int = Field(ge=0)
+    accuracy: float = Field(ge=0.0, le=1.0)
+    avg_score: float = Field(ge=0.0, le=1.0)
+
+
+class LearnerAnalyticsSummary(BaseModel):
+    """Comprehensive performance analytics summary for a learner."""
+    learner_id: uuid.UUID
+    total_events: int = Field(ge=0)
+    completed_activities: int = Field(ge=0)
+    overall_accuracy: float = Field(ge=0.0, le=1.0)
+    avg_score: float = Field(ge=0.0, le=1.0)
+    avg_response_time_ms: float = Field(ge=0.0)
+    avg_hints_per_activity: float = Field(ge=0.0)
+    avg_assistance_level: float = Field(ge=0.0, le=3.0)
+    modality_breakdown: list[ModalityMetrics] = Field(default_factory=list)
+    activity_type_breakdown: list[ActivityTypeMetrics] = Field(default_factory=list)
+    first_activity_at: datetime | None = None
+    last_activity_at: datetime | None = None
+
+
+class ObjectiveMasteryStatus(BaseModel):
+    """Evaluated mastery status for an individual curriculum objective."""
+    objective_id: uuid.UUID
+    objective_title: str
+    subject_title: str | None = None
+    difficulty_level: int = Field(default=1, ge=1, le=5)
+    total_attempts: int = Field(ge=0)
+    accuracy: float = Field(ge=0.0, le=1.0)
+    avg_assistance_level: float = Field(ge=0.0, le=3.0)
+    mastery_achieved: bool
+    status: str = Field(description="'not_started', 'in_progress', or 'mastered'")
+    last_attempt_at: datetime | None = None
+
+
+class LearnerMasteryReport(BaseModel):
+    """Mastery evaluation report across curriculum objectives for a learner."""
+    learner_id: uuid.UUID
+    total_objectives_evaluated: int = Field(ge=0)
+    mastered_count: int = Field(ge=0)
+    in_progress_count: int = Field(ge=0)
+    not_started_count: int = Field(ge=0)
+    mastery_percentage: float = Field(ge=0.0, le=100.0)
+    objectives: list[ObjectiveMasteryStatus] = Field(default_factory=list)
+
+
+class ProgressDataPoint(BaseModel):
+    """Chronological performance data point for longitudinal trend tracking."""
+    date: str = Field(description="ISO date string (YYYY-MM-DD)")
+    events_count: int = Field(ge=0)
+    accuracy: float = Field(ge=0.0, le=1.0)
+    avg_score: float = Field(ge=0.0, le=1.0)
+
+
+class LearnerProgressReport(BaseModel):
+    """Longitudinal performance tracking report over time."""
+    learner_id: uuid.UUID
+    total_days_active: int = Field(ge=0)
+    data_points: list[ProgressDataPoint] = Field(default_factory=list)

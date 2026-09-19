@@ -641,6 +641,157 @@ class MockAnalyticsService:
         from app.core.errors import NotFoundError
         raise NotFoundError(f"Performance event '{event_id}' not found.")
 
+    async def get_learner_summary(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+    ) -> LearnerAnalyticsSummary:
+        matching = [e for e in self.events if e.learner_id == learner_id]
+        if not matching:
+            return LearnerAnalyticsSummary(
+                learner_id=learner_id,
+                total_events=0,
+                completed_activities=0,
+                overall_accuracy=0.0,
+                avg_score=0.0,
+                avg_response_time_ms=0.0,
+                avg_hints_per_activity=0.0,
+                avg_assistance_level=0.0,
+                modality_breakdown=[],
+                activity_type_breakdown=[],
+                first_activity_at=None,
+                last_activity_at=None,
+            )
+        total = len(matching)
+        completed = sum(1 for e in matching if e.completed)
+        correct = sum(1 for e in matching if e.correct)
+        acc = round(correct / total, 4)
+        avg_sc = round(sum(e.score for e in matching) / total, 4)
+        avg_rt = round(sum(e.response_time_ms for e in matching) / total, 2)
+        avg_hints = round(sum(e.hints_used for e in matching) / total, 2)
+        avg_assist = round(sum(e.assistance_level for e in matching) / total, 2)
+
+        modality_breakdown: list[ModalityMetrics] = []
+        for mod in sorted(list({e.modality for e in matching})):
+            m_events = [e for e in matching if e.modality == mod]
+            m_total = len(m_events)
+            m_correct = sum(1 for e in m_events if e.correct)
+            modality_breakdown.append(
+                ModalityMetrics(
+                    modality=mod,
+                    total_events=m_total,
+                    accuracy=round(m_correct / m_total, 4) if m_total else 0.0,
+                    avg_score=round(sum(e.score for e in m_events) / m_total, 4) if m_total else 0.0,
+                    avg_response_time_ms=round(sum(e.response_time_ms for e in m_events) / m_total, 2) if m_total else 0.0,
+                    avg_assistance_level=round(sum(e.assistance_level for e in m_events) / m_total, 2) if m_total else 0.0,
+                )
+            )
+
+        activity_type_breakdown: list[ActivityTypeMetrics] = []
+        for at in sorted(list({e.activity_type for e in matching})):
+            at_events = [e for e in matching if e.activity_type == at]
+            at_total = len(at_events)
+            at_correct = sum(1 for e in at_events if e.correct)
+            activity_type_breakdown.append(
+                ActivityTypeMetrics(
+                    activity_type=at,
+                    total_events=at_total,
+                    accuracy=round(at_correct / at_total, 4) if at_total else 0.0,
+                    avg_score=round(sum(e.score for e in at_events) / at_total, 4) if at_total else 0.0,
+                )
+            )
+
+        return LearnerAnalyticsSummary(
+            learner_id=learner_id,
+            total_events=total,
+            completed_activities=completed,
+            overall_accuracy=acc,
+            avg_score=avg_sc,
+            avg_response_time_ms=avg_rt,
+            avg_hints_per_activity=avg_hints,
+            avg_assistance_level=avg_assist,
+            modality_breakdown=modality_breakdown,
+            activity_type_breakdown=activity_type_breakdown,
+            first_activity_at=matching[0].timestamp,
+            last_activity_at=matching[-1].timestamp,
+        )
+
+    async def get_learner_mastery(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+    ) -> LearnerMasteryReport:
+        matching = [e for e in self.events if e.learner_id == learner_id and e.objective_id is not None]
+        obj_ids = sorted(list({e.objective_id for e in matching if e.objective_id is not None}))
+
+        objective_statuses: list[ObjectiveMasteryStatus] = []
+        for obj_id in obj_ids:
+            obj_events = [e for e in matching if e.objective_id == obj_id]
+            total_attempts = len(obj_events)
+            correct_count = sum(1 for e in obj_events if e.correct)
+            acc = round(correct_count / total_attempts, 4) if total_attempts else 0.0
+            avg_assist = round(sum(e.assistance_level for e in obj_events) / total_attempts, 2) if total_attempts else 0.0
+            mastery_achieved = bool(total_attempts >= 1 and acc >= 0.80 and avg_assist <= 1.0)
+            status = "mastered" if mastery_achieved else "in_progress"
+            objective_statuses.append(
+                ObjectiveMasteryStatus(
+                    objective_id=obj_id,
+                    objective_title=f"Objective {obj_id}",
+                    difficulty_level=1,
+                    total_attempts=total_attempts,
+                    accuracy=acc,
+                    avg_assistance_level=avg_assist,
+                    mastery_achieved=mastery_achieved,
+                    status=status,
+                    last_attempt_at=max((e.timestamp for e in obj_events), default=None),
+                )
+            )
+
+        total_evaluated = len(objective_statuses)
+        mastered = sum(1 for o in objective_statuses if o.status == "mastered")
+        in_prog = sum(1 for o in objective_statuses if o.status == "in_progress")
+        pct = round((mastered / total_evaluated) * 100.0, 2) if total_evaluated else 0.0
+        return LearnerMasteryReport(
+            learner_id=learner_id,
+            total_objectives_evaluated=total_evaluated,
+            mastered_count=mastered,
+            in_progress_count=in_prog,
+            not_started_count=0,
+            mastery_percentage=pct,
+            objectives=objective_statuses,
+        )
+
+    async def get_learner_progress(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+        days: int = 30,
+    ) -> LearnerProgressReport:
+        matching = [e for e in self.events if e.learner_id == learner_id]
+        groups: dict[str, list[PerformanceEvent]] = {}
+        for e in matching:
+            d_str = e.timestamp.strftime("%Y-%m-%d")
+            groups.setdefault(d_str, []).append(e)
+
+        data_points: list[ProgressDataPoint] = []
+        for d in sorted(groups.keys()):
+            d_events = groups[d]
+            cnt = len(d_events)
+            corr = sum(1 for e in d_events if e.correct)
+            data_points.append(
+                ProgressDataPoint(
+                    date=d,
+                    events_count=cnt,
+                    accuracy=round(corr / cnt, 4) if cnt else 0.0,
+                    avg_score=round(sum(e.score for e in d_events) / cnt, 4) if cnt else 0.0,
+                )
+            )
+        return LearnerProgressReport(
+            learner_id=learner_id,
+            total_days_active=len(data_points),
+            data_points=data_points,
+        )
+
 
 _MOCK_ANALYTICS_INSTANCE = MockAnalyticsService()
 
@@ -653,8 +804,15 @@ from app.analytics.models import ActivityAttempt, PerformanceEvent
 from app.analytics.router import get_analytics_service
 from app.analytics.schemas import (
     ActivityAttemptCreate,
+    ActivityTypeMetrics,
+    LearnerAnalyticsSummary,
+    LearnerMasteryReport,
+    LearnerProgressReport,
+    ModalityMetrics,
+    ObjectiveMasteryStatus,
     PerformanceEventCreate,
     PerformanceEventQueryFilter,
+    ProgressDataPoint,
 )
 
 app.dependency_overrides[get_db_session] = override_get_db_session

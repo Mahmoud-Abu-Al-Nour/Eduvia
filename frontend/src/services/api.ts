@@ -210,6 +210,20 @@ export const analyticsApi = {
   /** Get a single performance event by ID */
   getEventById: (eventId: string) =>
     get<import('@/types').PerformanceEvent>(`/analytics/events/${eventId}`),
+
+  /** Get performance analytics summary for a learner */
+  getLearnerSummary: (learnerId: string) =>
+    get<import('@/types').LearnerAnalyticsSummary>(`/analytics/learners/${learnerId}/summary`),
+
+  /** Get curriculum objective mastery report for a learner */
+  getLearnerMastery: (learnerId: string) =>
+    get<import('@/types').LearnerMasteryReport>(`/analytics/learners/${learnerId}/mastery`),
+
+  /** Get longitudinal progress timeline for a learner */
+  getLearnerProgress: (learnerId: string, days: number = 30) =>
+    get<import('@/types').LearnerProgressReport>(`/analytics/learners/${learnerId}/progress`, {
+      params: { days },
+    }),
 }
 
 export const api = {

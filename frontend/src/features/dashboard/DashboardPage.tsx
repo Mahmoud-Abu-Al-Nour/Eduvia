@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { BookOpen, Users, BarChart3, LogOut, PlayCircle } from "lucide-react";
+import { BookOpen, Users, BarChart3, LogOut, PlayCircle, TrendingUp } from "lucide-react";
 import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
 import { LearnerManager } from "@/features/learners/LearnerManager";
+import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 
 
 interface DashboardPageProps {
@@ -59,6 +60,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           >
             <Users className={`w-5 h-5 mr-3 ${activeTab === 'learners' ? 'text-blue-700' : 'text-gray-400'}`} />
             Learners
+          </a>
+
+          <a
+            href="#"
+            onClick={(e) => { e.preventDefault(); setActiveTab("analytics"); }}
+            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'analytics' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <TrendingUp className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-blue-700' : 'text-gray-400'}`} />
+            Analytics & Mastery
           </a>
         </nav>
 
@@ -169,6 +179,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           {activeTab === "learners" && (
             <div className="max-w-6xl">
               <LearnerManager />
+            </div>
+          )}
+
+          {activeTab === "analytics" && (
+            <div className="max-w-6xl">
+              <AnalyticsDashboard />
             </div>
           )}
         </div>

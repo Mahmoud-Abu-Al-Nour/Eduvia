@@ -7,7 +7,7 @@ learner performance events and activity attempts.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import structlog
@@ -17,8 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analytics.models import ActivityAttempt, PerformanceEvent
 from app.analytics.schemas import (
     ActivityAttemptCreate,
+    ActivityTypeMetrics,
+    LearnerAnalyticsSummary,
+    LearnerMasteryReport,
+    LearnerProgressReport,
+    ModalityMetrics,
+    ObjectiveMasteryStatus,
     PerformanceEventCreate,
     PerformanceEventQueryFilter,
+    ProgressDataPoint,
 )
 from app.core.errors import AuthorizationError, NotFoundError, ValidationError
 from app.curriculum.models import LearningObjective
@@ -206,3 +213,255 @@ class AnalyticsService:
                 raise AuthorizationError("You do not have permission to view this performance event.")
 
         return event
+
+    async def get_learner_summary(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+    ) -> LearnerAnalyticsSummary:
+        """
+        Compute aggregate performance summary for a learner across all modalities and activity types.
+        Enforces teacher/admin authorization.
+        """
+        learner_stmt = select(Learner).where(Learner.id == learner_id)
+        learner_res = await self.session.execute(learner_stmt)
+        learner = learner_res.scalars().first()
+        if not learner:
+            raise NotFoundError(f"Learner with id '{learner_id}' not found.")
+
+        if requesting_user is not None and requesting_user.role != "admin":
+            if learner.teacher_id != requesting_user.id:
+                raise AuthorizationError("You do not have permission to view analytics for this learner.")
+
+        query = (
+            select(PerformanceEvent)
+            .where(PerformanceEvent.learner_id == learner_id)
+            .order_by(PerformanceEvent.timestamp.asc())
+        )
+        result = await self.session.execute(query)
+        events = list(result.scalars().all())
+
+        if not events:
+            return LearnerAnalyticsSummary(
+                learner_id=learner_id,
+                total_events=0,
+                completed_activities=0,
+                overall_accuracy=0.0,
+                avg_score=0.0,
+                avg_response_time_ms=0.0,
+                avg_hints_per_activity=0.0,
+                avg_assistance_level=0.0,
+                modality_breakdown=[],
+                activity_type_breakdown=[],
+                first_activity_at=None,
+                last_activity_at=None,
+            )
+
+        total_events = len(events)
+        completed_activities = sum(1 for e in events if e.completed)
+        correct_count = sum(1 for e in events if e.correct)
+        overall_accuracy = round(correct_count / total_events, 4)
+        avg_score = round(sum(e.score for e in events) / total_events, 4)
+        avg_response_time_ms = round(sum(e.response_time_ms for e in events) / total_events, 2)
+        avg_hints_per_activity = round(sum(e.hints_used for e in events) / total_events, 2)
+        avg_assistance_level = round(sum(e.assistance_level for e in events) / total_events, 2)
+
+        # Modality breakdown
+        modalities = sorted(list({e.modality for e in events}))
+        modality_breakdown: list[ModalityMetrics] = []
+        for mod in modalities:
+            mod_events = [e for e in events if e.modality == mod]
+            mod_total = len(mod_events)
+            mod_correct = sum(1 for e in mod_events if e.correct)
+            modality_breakdown.append(
+                ModalityMetrics(
+                    modality=mod,
+                    total_events=mod_total,
+                    accuracy=round(mod_correct / mod_total, 4) if mod_total else 0.0,
+                    avg_score=round(sum(e.score for e in mod_events) / mod_total, 4) if mod_total else 0.0,
+                    avg_response_time_ms=round(sum(e.response_time_ms for e in mod_events) / mod_total, 2) if mod_total else 0.0,
+                    avg_assistance_level=round(sum(e.assistance_level for e in mod_events) / mod_total, 2) if mod_total else 0.0,
+                )
+            )
+
+        # Activity type breakdown
+        act_types = sorted(list({e.activity_type for e in events}))
+        activity_type_breakdown: list[ActivityTypeMetrics] = []
+        for at in act_types:
+            at_events = [e for e in events if e.activity_type == at]
+            at_total = len(at_events)
+            at_correct = sum(1 for e in at_events if e.correct)
+            activity_type_breakdown.append(
+                ActivityTypeMetrics(
+                    activity_type=at,
+                    total_events=at_total,
+                    accuracy=round(at_correct / at_total, 4) if at_total else 0.0,
+                    avg_score=round(sum(e.score for e in at_events) / at_total, 4) if at_total else 0.0,
+                )
+            )
+
+        return LearnerAnalyticsSummary(
+            learner_id=learner_id,
+            total_events=total_events,
+            completed_activities=completed_activities,
+            overall_accuracy=overall_accuracy,
+            avg_score=avg_score,
+            avg_response_time_ms=avg_response_time_ms,
+            avg_hints_per_activity=avg_hints_per_activity,
+            avg_assistance_level=avg_assistance_level,
+            modality_breakdown=modality_breakdown,
+            activity_type_breakdown=activity_type_breakdown,
+            first_activity_at=events[0].timestamp,
+            last_activity_at=events[-1].timestamp,
+        )
+
+    async def get_learner_mastery(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+    ) -> LearnerMasteryReport:
+        """
+        Evaluate learning objective mastery for a learner using the deterministic rubric.
+        Threshold: Accuracy >= minimum_accuracy (default 0.80) and assistance <= maximum_assistance (default 1).
+        """
+        learner_stmt = select(Learner).where(Learner.id == learner_id)
+        learner_res = await self.session.execute(learner_stmt)
+        learner = learner_res.scalars().first()
+        if not learner:
+            raise NotFoundError(f"Learner with id '{learner_id}' not found.")
+
+        if requesting_user is not None and requesting_user.role != "admin":
+            if learner.teacher_id != requesting_user.id:
+                raise AuthorizationError("You do not have permission to view mastery for this learner.")
+
+        query = (
+            select(PerformanceEvent)
+            .where(
+                PerformanceEvent.learner_id == learner_id,
+                PerformanceEvent.objective_id.isnot(None),
+            )
+            .order_by(PerformanceEvent.timestamp.asc())
+        )
+        result = await self.session.execute(query)
+        events = list(result.scalars().all())
+
+        # Collect unique objective IDs
+        obj_ids = list({e.objective_id for e in events if e.objective_id is not None})
+        objectives_map: dict[uuid.UUID, LearningObjective] = {}
+        if obj_ids:
+            obj_stmt = select(LearningObjective).where(LearningObjective.id.in_(obj_ids))
+            obj_res = await self.session.execute(obj_stmt)
+            objectives_map = {obj.id: obj for obj in obj_res.scalars().all()}
+
+        objective_statuses: list[ObjectiveMasteryStatus] = []
+        for obj_id in obj_ids:
+            obj = objectives_map.get(obj_id)
+            if obj:
+                if isinstance(obj.title, dict):
+                    obj_title = str(obj.title.get("en") or next(iter(obj.title.values()), str(obj.id)))
+                else:
+                    obj_title = str(obj.title)
+            else:
+                obj_title = f"Objective {obj_id}"
+            diff_level = obj.difficulty_level if obj else 1
+            criteria = (getattr(obj, "assessment_criteria", None) or {}) if obj else {}
+            min_acc = float(criteria.get("minimum_accuracy", 0.80))
+            max_assist = int(criteria.get("maximum_assistance_level", 1))
+
+            obj_events = [e for e in events if e.objective_id == obj_id]
+            total_attempts = len(obj_events)
+            correct_count = sum(1 for e in obj_events if e.correct)
+            accuracy = round(correct_count / total_attempts, 4) if total_attempts > 0 else 0.0
+            avg_assistance = round(sum(e.assistance_level for e in obj_events) / total_attempts, 2) if total_attempts > 0 else 0.0
+            last_attempt_at = max((e.timestamp for e in obj_events), default=None)
+
+            mastery_achieved = bool(total_attempts >= 1 and accuracy >= min_acc and avg_assistance <= max_assist)
+            status = "mastered" if mastery_achieved else ("in_progress" if total_attempts > 0 else "not_started")
+
+            objective_statuses.append(
+                ObjectiveMasteryStatus(
+                    objective_id=obj_id,
+                    objective_title=obj_title,
+                    difficulty_level=diff_level,
+                    total_attempts=total_attempts,
+                    accuracy=accuracy,
+                    avg_assistance_level=avg_assistance,
+                    mastery_achieved=mastery_achieved,
+                    status=status,
+                    last_attempt_at=last_attempt_at,
+                )
+            )
+
+        total_objectives_evaluated = len(objective_statuses)
+        mastered_count = sum(1 for o in objective_statuses if o.status == "mastered")
+        in_progress_count = sum(1 for o in objective_statuses if o.status == "in_progress")
+        not_started_count = sum(1 for o in objective_statuses if o.status == "not_started")
+        mastery_pct = round((mastered_count / total_objectives_evaluated) * 100.0, 2) if total_objectives_evaluated > 0 else 0.0
+
+        return LearnerMasteryReport(
+            learner_id=learner_id,
+            total_objectives_evaluated=total_objectives_evaluated,
+            mastered_count=mastered_count,
+            in_progress_count=in_progress_count,
+            not_started_count=not_started_count,
+            mastery_percentage=mastery_pct,
+            objectives=objective_statuses,
+        )
+
+    async def get_learner_progress(
+        self,
+        learner_id: uuid.UUID,
+        requesting_user: User | None = None,
+        days: int = 30,
+    ) -> LearnerProgressReport:
+        """
+        Compute longitudinal performance timeline grouped by calendar day (UTC).
+        """
+        learner_stmt = select(Learner).where(Learner.id == learner_id)
+        learner_res = await self.session.execute(learner_stmt)
+        learner = learner_res.scalars().first()
+        if not learner:
+            raise NotFoundError(f"Learner with id '{learner_id}' not found.")
+
+        if requesting_user is not None and requesting_user.role != "admin":
+            if learner.teacher_id != requesting_user.id:
+                raise AuthorizationError("You do not have permission to view progress for this learner.")
+
+        query = select(PerformanceEvent).where(PerformanceEvent.learner_id == learner_id)
+        if days > 0:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+            query = query.where(PerformanceEvent.timestamp >= cutoff)
+
+        query = query.order_by(PerformanceEvent.timestamp.asc())
+        result = await self.session.execute(query)
+        events = list(result.scalars().all())
+
+        # Group events by date string (YYYY-MM-DD)
+        daily_groups: dict[str, list[PerformanceEvent]] = {}
+        for e in events:
+            date_key = e.timestamp.strftime("%Y-%m-%d")
+            if date_key not in daily_groups:
+                daily_groups[date_key] = []
+            daily_groups[date_key].append(e)
+
+        data_points: list[ProgressDataPoint] = []
+        for date_str in sorted(daily_groups.keys()):
+            day_events = daily_groups[date_str]
+            day_total = len(day_events)
+            day_correct = sum(1 for e in day_events if e.correct)
+            acc = round(day_correct / day_total, 4) if day_total else 0.0
+            avg_sc = round(sum(e.score for e in day_events) / day_total, 4) if day_total else 0.0
+            data_points.append(
+                ProgressDataPoint(
+                    date=date_str,
+                    events_count=day_total,
+                    accuracy=acc,
+                    avg_score=avg_sc,
+                )
+            )
+
+        return LearnerProgressReport(
+            learner_id=learner_id,
+            total_days_active=len(data_points),
+            data_points=data_points,
+        )

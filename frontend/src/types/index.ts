@@ -402,6 +402,73 @@ export interface ActivityAttempt {
   updated_at: string
 }
 
+export interface ModalityMetrics {
+  modality: string
+  total_events: number
+  accuracy: number
+  avg_score: number
+  avg_response_time_ms: number
+  avg_assistance_level: number
+}
+
+export interface ActivityTypeMetrics {
+  activity_type: string
+  total_events: number
+  accuracy: number
+  avg_score: number
+}
+
+export interface LearnerAnalyticsSummary {
+  learner_id: string
+  total_events: number
+  completed_activities: number
+  overall_accuracy: number
+  avg_score: number
+  avg_response_time_ms: number
+  avg_hints_per_activity: number
+  avg_assistance_level: number
+  modality_breakdown: ModalityMetrics[]
+  activity_type_breakdown: ActivityTypeMetrics[]
+  first_activity_at?: string | null
+  last_activity_at?: string | null
+}
+
+export interface ObjectiveMasteryStatus {
+  objective_id: string
+  objective_title: string
+  subject_title?: string | null
+  difficulty_level: number
+  total_attempts: number
+  accuracy: number
+  avg_assistance_level: number
+  mastery_achieved: boolean
+  status: 'not_started' | 'in_progress' | 'mastered' | string
+  last_attempt_at?: string | null
+}
+
+export interface LearnerMasteryReport {
+  learner_id: string
+  total_objectives_evaluated: number
+  mastered_count: number
+  in_progress_count: number
+  not_started_count: number
+  mastery_percentage: number
+  objectives: ObjectiveMasteryStatus[]
+}
+
+export interface ProgressDataPoint {
+  date: string
+  events_count: number
+  accuracy: number
+  avg_score: number
+}
+
+export interface LearnerProgressReport {
+  learner_id: string
+  total_days_active: number
+  data_points: ProgressDataPoint[]
+}
+
 // ── Recommendation Types ───────────────────────────────────────────────────
 
 export interface Recommendation {

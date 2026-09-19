@@ -1,2 +1,2 @@
-// Eduvia - analytics feature
-export {};
+export { AnalyticsDashboard } from "./AnalyticsDashboard";
+export { default } from "./AnalyticsDashboard";

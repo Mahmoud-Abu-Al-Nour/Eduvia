@@ -14,6 +14,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.analytics.schemas import (
     ActivityAttemptCreate,
     ActivityAttemptRead,
+    LearnerAnalyticsSummary,
+    LearnerMasteryReport,
+    LearnerProgressReport,
     Modality,
     PerformanceEventCreate,
     PerformanceEventQueryFilter,
@@ -142,6 +145,98 @@ async def get_event_by_id(
             requesting_user=current_user,
         )
         return PerformanceEventRead.model_validate(event)
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        )
+
+
+# ── Phase 7: Learner Analytics & Mastery Endpoints ───────────────────────────
+
+
+@router.get(
+    "/learners/{learner_id}/summary",
+    response_model=LearnerAnalyticsSummary,
+    status_code=status.HTTP_200_OK,
+    summary="Get learner performance analytics summary",
+    description="Calculates aggregate accuracy, response latency, assistance levels, and modality breakdown for a learner.",
+)
+async def get_learner_analytics_summary(
+    learner_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+) -> LearnerAnalyticsSummary:
+    try:
+        return await service.get_learner_summary(
+            learner_id=learner_id,
+            requesting_user=current_user,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        )
+
+
+@router.get(
+    "/learners/{learner_id}/mastery",
+    response_model=LearnerMasteryReport,
+    status_code=status.HTTP_200_OK,
+    summary="Get learner learning objective mastery report",
+    description="Evaluates mastery across curriculum objectives using the deterministic objective rubric.",
+)
+async def get_learner_mastery_report(
+    learner_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+) -> LearnerMasteryReport:
+    try:
+        return await service.get_learner_mastery(
+            learner_id=learner_id,
+            requesting_user=current_user,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        )
+    except AuthorizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        )
+
+
+@router.get(
+    "/learners/{learner_id}/progress",
+    response_model=LearnerProgressReport,
+    status_code=status.HTTP_200_OK,
+    summary="Get learner longitudinal progress timeline",
+    description="Returns daily chronological performance points for longitudinal trend analysis.",
+)
+async def get_learner_progress_timeline(
+    learner_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    days: int = Query(default=30, ge=1, le=365, description="Number of historical days to inspect"),
+) -> LearnerProgressReport:
+    try:
+        return await service.get_learner_progress(
+            learner_id=learner_id,
+            requesting_user=current_user,
+            days=days,
+        )
     except NotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
