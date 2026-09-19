@@ -207,6 +207,24 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
 * **Gate Status**: **PHASE 10 — LOCKED**
 * **Documentation**: [[05 - Development History/Phase 10 — Teacher Dashboard & Insights|Phase 10 — Teacher Dashboard & Insights]], [[05 - Development History/Reports/Phase 10 Report|Phase 10 Report]]
 
+### Phase 11 — System Hardening & Accessibility Audit
+* **Objective**: Fortify system security through centralized middleware, rate limiting, and CORS controls, while certifying WCAG 2.1 AA accessibility via keyboard switch navigation, semantic ARIA roles, focus containment, and high-contrast styling.
+* **Scope & Delivery**:
+  * Centralized backend security headers middleware: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 0`, customized CSP, and production-aware HSTS (active in production HTTPS, omitted in local dev).
+  * Thread-safe bounded in-memory sliding-window rate limiter (`InMemoryRateLimiter`) with automatic eviction of stale entries, HTTP 429 response, and `Retry-After` header protecting `login` (5/min), `generate` (20/min), and `evaluate` (60/min).
+  * Production documentation exposure control: cleanly disables `/docs`, `/redoc`, and `/openapi.json` when `APP_ENV=production`.
+  * CORS hardening: explicitly allowed HTTP methods (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`) and explicit headers replacing wildcard definitions.
+  * Role authorization dependency: `get_current_active_teacher` enforcing active status and verified teacher/admin role.
+  * Frontend accessible global skip link: `<a href="#main-content" className="skip-to-content">` targeting primary content landmarks.
+  * Semantic tab navigation: `role="tablist"` and `role="tab"` navigation with `aria-selected`, `aria-controls`, and `role="tabpanel"` associations in Teacher Dashboard.
+  * Focus containment & restoration: robust `Tab`/`Shift+Tab` focus trapping within `IEPReportModal.tsx` and reliable opener element focus restoration upon close.
+  * Switch device & keyboard accessibility: dedicated single/two-switch keyboard shortcuts in `ActivityPlayer.tsx` (`1–4`, `Enter`, `Space`, `H`, `R`) respecting form input boundaries.
+  * ARIA Live Regions: polite live status announcements (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`) for asynchronous hint revelation, answer evaluation, and resets.
+  * Windows High Contrast & Forced Colors: `@media (forced-colors: active)` mode with visible outlines and multi-cue non-color indicators.
+* **Verified Milestone**: **209/209 backend tests passed** (17 new Phase 11 tests + 192 baseline, 84% code coverage). Frontend production build clean (0 errors, 13/13 frontend unit & accessibility tests passing).
+* **Gate Status**: **PHASE 11 — LOCKED**
+* **Documentation**: [[05 - Development History/Phase 11 — System Hardening & Accessibility Audit|Phase 11 — System Hardening & Accessibility Audit]], [[05 - Development History/Reports/Phase 11 Report|Phase 11 Report]]
+
 ---
 
 
@@ -262,6 +280,7 @@ The architecture, code design, and engineering workflows throughout Eduvia's lif
 | **Phase 8** | Adaptive Learning Intelligence Engine | 159 passed | Verified | **LOCKED** |
 | **Phase 9** | Gemini Production & RAG Ingestion | 178 passed | Verified | **LOCKED** |
 | **Phase 10** | Teacher Dashboard & Insights | 192 passed | Verified | **LOCKED** |
+| **Phase 11** | System Hardening & Accessibility Audit | 209 passed | Verified | **LOCKED** |
 
 ---
 
@@ -299,9 +318,7 @@ The development history is tracked under Git version control on branch `develop`
   * All deprecation warnings eliminated across generation, embeddings, and structured outputs.
 
 ### Future Roadmap Phases (Explicitly Not Started)
-The following phases are scheduled in [[07 - Roadmap/Future Phases|Future Phases]] and have **NOT** been started:
-* **Phase 10 — Teacher Dashboard & Insights**: Cohort management, IEP progress exports, and intervention alert rules.
-* **Phase 11 — System Hardening & Accessibility Audit**: Rigorous assistive device certification, switch controls, and WCAG 2.1 AA formal audit.
+The following phase is scheduled in [[07 - Roadmap/Future Phases|Future Phases]] and has **NOT** been started:
 * **Phase 12 — Cloud Deployment & Staging**: Containerized deployment to Google Cloud Run, Cloud SQL PostgreSQL, and Secret Manager.
 
 ---
@@ -317,5 +334,7 @@ The following phases are scheduled in [[07 - Roadmap/Future Phases|Future Phases
 * Phase 7 Details: [[05 - Development History/Phase 07 — Learner Analytics & Mastery Tracking|Phase 07 — Learner Analytics & Mastery Tracking]] (Report: [[05 - Development History/Reports/Phase 07 Report|Phase 07 Report]])
 * Phase 8 Details: [[05 - Development History/Phase 08 — Adaptive Learning Intelligence Engine|Phase 08 — Adaptive Learning Intelligence Engine]] (Report: [[05 - Development History/Reports/Phase 08 Report|Phase 08 Report]])
 * Phase 9 Details: [[05 - Development History/Phase 09 — Gemini Production & RAG Ingestion|Phase 09 — Gemini Production & RAG Ingestion]] (Report: [[05 - Development History/Reports/Phase 09 Report|Phase 09 Report]])
+* Phase 10 Details: [[05 - Development History/Phase 10 — Teacher Dashboard & Insights|Phase 10 — Teacher Dashboard & Insights]] (Report: [[05 - Development History/Reports/Phase 10 Report|Phase 10 Report]])
+* Phase 11 Details: [[05 - Development History/Phase 11 — System Hardening & Accessibility Audit|Phase 11 — System Hardening & Accessibility Audit]] (Report: [[05 - Development History/Reports/Phase 11 Report|Phase 11 Report]])
 
 

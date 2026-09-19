@@ -53,13 +53,72 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
     }
   }, [isOpen, learnerId, fetchReport]);
 
-  // Handle ESC key to close
+  const openerElementRef = React.useRef<HTMLElement | null>(null);
+  const modalContainerRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Capture opener element on open and restore on close
+  useEffect(() => {
+    if (isOpen) {
+      openerElementRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => {
+        if (modalContainerRef.current) {
+          const firstFocusable = modalContainerRef.current.querySelector<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          );
+          if (firstFocusable) {
+            firstFocusable.focus();
+          } else {
+            modalContainerRef.current.focus();
+          }
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    } else if (openerElementRef.current && document.body.contains(openerElementRef.current)) {
+      openerElementRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Trap focus within modal and handle Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
+      if (!isOpen || !modalContainerRef.current) return;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
         onClose();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const focusables = modalContainerRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        const visibleFocusables = Array.from(focusables).filter(
+          (el) => el.offsetParent !== null || el.offsetWidth > 0 || el.offsetHeight > 0
+        );
+
+        if (visibleFocusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const firstElement = visibleFocusables[0];
+        const lastElement = visibleFocusables[visibleFocusables.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || document.activeElement === modalContainerRef.current) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
@@ -103,7 +162,11 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
       aria-modal="true"
       aria-labelledby="iep-modal-title"
     >
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden my-auto">
+      <div 
+        ref={modalContainerRef}
+        tabIndex={-1}
+        className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-gray-200 overflow-hidden my-auto focus:outline-none"
+      >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-slate-50">
           <div className="flex items-center gap-3">

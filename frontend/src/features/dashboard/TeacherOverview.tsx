@@ -252,8 +252,11 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
-                          {alert.severity.toUpperCase()}
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeClass}`}>
+                          {alert.severity === "priority" && <AlertTriangle className="w-3 h-3 text-rose-600" aria-hidden="true" />}
+                          {alert.severity === "advisory" && <ShieldAlert className="w-3 h-3 text-amber-600" aria-hidden="true" />}
+                          {alert.severity === "info" && <Info className="w-3 h-3 text-blue-600" aria-hidden="true" />}
+                          <span>{alert.severity.toUpperCase()}</span>
                         </span>
                         <span className="font-semibold text-gray-900 text-base">
                           {alert.learner_display_name}

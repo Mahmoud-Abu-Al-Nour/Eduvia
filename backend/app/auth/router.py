@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import create_access_token, create_refresh_token, verify_password
+from app.core.rate_limit import get_client_ip, login_rate_limiter
 from app.database.session import get_db_session
 from app.users.service import UserService
 
@@ -21,12 +22,17 @@ class Token(BaseModel):
 
 @router.post("/login", response_model=Token)
 async def login_access_token(
+    request: Request,
     session: SessionDep,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ) -> Token:
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
+    # Rate limit check (brute-force abuse protection)
+    client_ip = get_client_ip(request)
+    login_rate_limiter.check(f"login:{client_ip}")
+
     user_service = UserService(session)
     user = await user_service.get_by_email(form_data.username)
 

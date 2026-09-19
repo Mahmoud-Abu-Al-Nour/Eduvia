@@ -92,69 +92,44 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           <span className="text-xl font-bold text-gray-900">Eduvia</span>
         </div>
         
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("overview"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'overview' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <BarChart3 className={`w-5 h-5 mr-3 ${activeTab === 'overview' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Overview
-          </a>
-
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("cohort"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'cohort' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <GraduationCap className={`w-5 h-5 mr-3 ${activeTab === 'cohort' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Classroom Cohort
-          </a>
-          
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("activities"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'activities' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <PlayCircle className={`w-5 h-5 mr-3 ${activeTab === 'activities' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Activities & Practice
-          </a>
-
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("curriculum"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'curriculum' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <BookOpen className={`w-5 h-5 mr-3 ${activeTab === 'curriculum' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Curriculum
-          </a>
-
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("learners"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'learners' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <Users className={`w-5 h-5 mr-3 ${activeTab === 'learners' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Learners
-          </a>
-
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("analytics"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'analytics' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <TrendingUp className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Analytics & Mastery
-          </a>
-
-          <a
-            href="#"
-            onClick={(e) => { e.preventDefault(); setActiveTab("recommendations"); }}
-            className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeTab === 'recommendations' ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-100'}`}
-          >
-            <Sparkles className={`w-5 h-5 mr-3 ${activeTab === 'recommendations' ? 'text-blue-700' : 'text-gray-400'}`} />
-            Adaptive Engine
-          </a>
+        <nav role="tablist" aria-label="Teacher Dashboard Tabs" className="flex-1 px-4 py-6 space-y-1">
+          {[
+            { id: "overview", label: "Overview", icon: BarChart3 },
+            { id: "cohort", label: "Classroom Cohort", icon: GraduationCap },
+            { id: "activities", label: "Activities & Practice", icon: PlayCircle },
+            { id: "curriculum", label: "Curriculum", icon: BookOpen },
+            { id: "learners", label: "Learners", icon: Users },
+            { id: "analytics", label: "Analytics & Mastery", icon: TrendingUp },
+            { id: "recommendations", label: "Adaptive Engine", icon: Sparkles },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                id={`tab-${tab.id}`}
+                aria-selected={isSelected}
+                aria-controls={`tabpanel-${tab.id}`}
+                tabIndex={isSelected ? 0 : -1}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isSelected
+                    ? "bg-blue-50 text-blue-700 font-semibold shadow-xs"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                <Icon
+                  className={`w-5 h-5 mr-3 shrink-0 ${
+                    isSelected ? "text-blue-700" : "text-gray-400"
+                  }`}
+                  aria-hidden="true"
+                />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-gray-200">
@@ -179,12 +154,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
+      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
           <h1 className="text-xl font-semibold text-gray-900 capitalize">{activeTab}</h1>
         </header>
         
-        <div className="flex-1 p-8 overflow-auto">
+        <div
+          role="tabpanel"
+          id={`tabpanel-${activeTab}`}
+          aria-labelledby={`tab-${activeTab}`}
+          className="flex-1 p-8 overflow-auto"
+        >
           {activeTab === "overview" && (
             <TeacherOverview
               onSelectLearnerForIEP={handleOpenIEP}

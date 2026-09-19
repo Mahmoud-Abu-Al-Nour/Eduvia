@@ -26,9 +26,13 @@ import { ActivityPlayer } from '@/features/learning'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
+    <>
+      <a href="#main-content" className="skip-to-content">
+        Skip to main content
+      </a>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
       
       {/* Learner Activity Player (Phase 5 - Session-based, no teacher login required) */}
       <Route path="/learn" element={<ActivityPlayer />} />
@@ -44,7 +48,8 @@ function App() {
       </Route>
       
       <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }
 

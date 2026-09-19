@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
+from app.core.middleware import SecurityHeadersMiddleware
 from app.database.session import create_db_engine, dispose_db_engine
 
 logger = structlog.get_logger(__name__)
@@ -41,6 +42,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_application() -> FastAPI:
     """Create and configure the FastAPI application."""
+    is_prod = settings.is_production
+
     application = FastAPI(
         title="Eduvia API",
         description=(
@@ -49,19 +52,28 @@ def create_application() -> FastAPI:
             "and adaptive learning intelligence."
         ),
         version="0.1.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
-        openapi_url="/openapi.json",
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
         lifespan=lifespan,
     )
+
+    # ── Security Headers ──────────────────────────────────────────────
+    application.add_middleware(SecurityHeadersMiddleware)
 
     # ── CORS ──────────────────────────────────────────────────────────
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "Origin",
+            "X-Requested-With",
+        ],
     )
 
     # ── API Routers ────────────────────────────────────────────────────
@@ -72,7 +84,12 @@ def create_application() -> FastAPI:
 
 
 
+from fastapi.exceptions import RequestValidationError
+from app.core.errors import EduviaError, eduvia_error_handler, validation_exception_handler
+
 app = create_application()
+app.add_exception_handler(EduviaError, eduvia_error_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 @app.exception_handler(Exception)

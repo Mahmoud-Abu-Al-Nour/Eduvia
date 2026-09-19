@@ -71,3 +71,19 @@ async def get_current_active_admin(
             detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+async def get_current_active_teacher(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """
+    Dependency to check if the current user is an active teacher or admin.
+    Administrators retain administrative access across teacher workflows.
+    """
+    if current_user.role.value not in ("teacher", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges"
+        )
+    return current_user
+

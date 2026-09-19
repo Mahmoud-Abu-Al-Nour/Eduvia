@@ -62,6 +62,9 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
   const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
+  // Accessible Live Region Status
+  const [liveAnnouncement, setLiveAnnouncement] = useState<string>('')
+
   // Timing tracking
   const startTimeRef = useRef<number>(Date.now())
 
@@ -162,6 +165,7 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
       setHintsRevealed(nextCount)
       setIsHintDrawerOpen(true)
       const hintText = activity.hints[nextCount - 1]
+      setLiveAnnouncement(`Hint ${nextCount} revealed: ${hintText}`)
       speak(`Hint: ${hintText}`)
     } else {
       setIsHintDrawerOpen(true)
@@ -196,6 +200,7 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
 
     setIsSubmitting(true)
     setSubmitError(null)
+    setLiveAnnouncement('Evaluating your answer, please wait.')
     cancel() // stop any ongoing audio
 
     try {
@@ -250,6 +255,11 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
 
       setEvaluationResult(evalResponse)
       setIsFeedbackOpen(true)
+      setLiveAnnouncement(
+        evalResponse.is_correct
+          ? `Correct answer! ${evalResponse.feedback}`
+          : `Feedback: ${evalResponse.feedback}`
+      )
 
       // Audio feedback
       if (evalResponse.is_correct) {
@@ -269,6 +279,7 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
     setIsFeedbackOpen(false)
     setEvaluationResult(null)
     setSubmitError(null)
+    setLiveAnnouncement('Activity reset. You can try again.')
     startTimeRef.current = Date.now()
     cancel()
 
@@ -284,6 +295,86 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
       }
     }
   }
+
+  // ── Switch & Accessible Keyboard Shortcuts ─────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Do not intercept keystrokes if the user is typing in a form input
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase()
+      if (targetTag === 'input' || targetTag === 'textarea' || targetTag === 'select') {
+        return
+      }
+
+      // Inactive while feedback dialog is open or submitting
+      if (isFeedbackOpen || isSubmitting || !activity) {
+        return
+      }
+
+      const key = e.key
+
+      // Number keys 1–4: select corresponding option where available
+      if (['1', '2', '3', '4'].includes(key)) {
+        const optionIndex = parseInt(key, 10) - 1
+        if (activity.activity_type === 'multiple_choice' && activity.content) {
+          const options = (activity.content as any).options
+          if (options && options[optionIndex]) {
+            e.preventDefault()
+            setSelectedOptionId(options[optionIndex].id)
+            setLiveAnnouncement(`Selected option ${key}: ${options[optionIndex].text}`)
+          }
+        } else if (activity.activity_type === 'visual_identification' && activity.content) {
+          const elements = (activity.content as any).elements
+          if (elements && elements[optionIndex]) {
+            e.preventDefault()
+            setSelectedElementId(elements[optionIndex].id)
+            setLiveAnnouncement(`Selected element ${key}: ${elements[optionIndex].label || key}`)
+          }
+        }
+        return
+      }
+
+      // 'H' or 'h': Reveal/Request progressive hint
+      if (key === 'h' || key === 'H') {
+        if (activity.hints && activity.hints.length > 0) {
+          e.preventDefault()
+          handleRevealNextHint()
+        }
+        return
+      }
+
+      // 'R' or 'r': Replay audio narration
+      if (key === 'r' || key === 'R') {
+        e.preventDefault()
+        handleReadAloud()
+        return
+      }
+
+      // Enter or Space: Submit answer if ready
+      if (key === 'Enter' || key === ' ') {
+        // Allow native button press without duplicate submission
+        if (targetTag === 'button') {
+          return
+        }
+        if (isSubmissionReady()) {
+          e.preventDefault()
+          void handleSubmit()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    activity,
+    isFeedbackOpen,
+    isSubmitting,
+    hintsRevealed,
+    selectedOptionId,
+    selectedElementId,
+    matchingPairs,
+    orderedIds,
+    itemToZoneMapping,
+  ])
 
   const handleExit = () => {
     cancel()
@@ -443,8 +534,22 @@ export const ActivityPlayer: React.FC<ActivityPlayerProps> = ({
         )}
       </header>
 
+      {/* ── Accessible Live Region ────────────────────────────────────────── */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {liveAnnouncement}
+      </div>
+
       {/* ── Main Activity Interaction Stage ───────────────────────────────── */}
-      <main className="flex-1 flex flex-col justify-center max-w-5xl w-full mx-auto p-4 sm:p-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 flex flex-col justify-center max-w-5xl w-full mx-auto p-4 sm:p-8 focus:outline-none"
+      >
         {submitError && (
           <div className="mb-6 p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 flex items-center gap-3">
             <AlertCircle className="w-5 h-5 shrink-0" />

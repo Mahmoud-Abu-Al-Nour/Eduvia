@@ -8,7 +8,7 @@ Endpoints:
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.schemas import (
@@ -22,6 +22,11 @@ from app.activities.schemas import (
 from app.activities.service import ActivityService
 from app.auth.dependencies import get_current_user
 from app.core.errors import NotFoundError, ValidationError
+from app.core.rate_limit import (
+    activity_evaluate_rate_limiter,
+    activity_generate_rate_limiter,
+    get_client_ip,
+)
 from app.database.session import get_db_session
 from app.users.models import User
 
@@ -51,9 +56,13 @@ def get_activity_service(
 )
 async def generate_activity(
     request: ActivityGenerateRequest,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     service: ActivityService = Depends(get_activity_service),
 ) -> ActivityGenerateResponse:
+    # Rate limit check by teacher identity
+    key = f"generate:user:{current_user.id}" if current_user and current_user.id else f"generate:ip:{get_client_ip(http_request)}"
+    activity_generate_rate_limiter.check(key)
     return await service.generate_activity(request=request, current_user=current_user)
 
 
@@ -112,8 +121,13 @@ async def list_activity_types() -> list[dict[str, Any]]:
 )
 async def evaluate_submission(
     request: ActivitySubmissionRequest,
+    http_request: Request,
     service: ActivityService = Depends(get_activity_service),
 ) -> ActivityEvaluationResponse:
+    # Rate limit check by client IP
+    client_ip = get_client_ip(http_request)
+    activity_evaluate_rate_limiter.check(f"evaluate:{client_ip}")
+
     try:
         return await service.evaluate_submission(request=request)
     except ValidationError as exc:

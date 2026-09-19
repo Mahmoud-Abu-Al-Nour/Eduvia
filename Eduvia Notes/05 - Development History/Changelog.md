@@ -4,6 +4,22 @@ All notable changes to the Eduvia platform are documented chronologically here.
 
 ---
 
+## [Phase 11: System Hardening & Accessibility Audit] — 2026-09-19
+- **Added**: Centralized backend security headers middleware (`SecurityHeadersMiddleware`) enforcing `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 0`, customized non-breaking Content Security Policy (CSP), and production-aware Strict-Transport-Security (HSTS; active in production HTTPS, omitted in local dev).
+- **Added**: Thread-safe bounded in-memory sliding-window rate limiter (`InMemoryRateLimiter`) with automatic eviction of stale entries, HTTP 429 status, and `Retry-After` header.
+- **Added**: Route-specific rate limiting on sensitive endpoints: `POST /api/v1/auth/login` (client IP, 5 req/min), `POST /api/v1/activities/generate` (teacher identity, 20 req/min), and `POST /api/v1/activities/evaluate` (client IP, 60 req/min).
+- **Added**: Production documentation exposure control: disables `/docs`, `/redoc`, and `/openapi.json` when `APP_ENV=production`.
+- **Added**: CORS hardening restricting allowed methods to explicit verbs (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`) and explicit headers (`Authorization`, `Content-Type`, `Accept`, `Origin`, `X-Requested-With`).
+- **Added**: `get_current_active_teacher` authorization dependency enforcing verified active teacher/admin identity.
+- **Added**: Frontend accessible global skip link (`<a href="#main-content" className="skip-to-content">`) targeting primary content landmarks.
+- **Added**: Accessible semantic tab navigation in `DashboardPage.tsx` using `role="tablist"`, `role="tab"`, `aria-selected`, `aria-controls`, and `role="tabpanel"`, removing pseudo `href="#"` navigation.
+- **Added**: Focus containment & restoration in `IEPReportModal.tsx`: captures opener element, traps `Tab` and `Shift+Tab` without leaking to background interactive controls, safely handles empty control sets, and restores focus on close.
+- **Added**: Switch device & accessible keyboard navigation in `ActivityPlayer.tsx`: number keys `1`–`4` for option selection, `Enter`/`Space` for submission, `H` for progressive hint revelation, and `R` for audio prompt playback, respecting form input focus.
+- **Added**: Semantic ARIA live regions (`role="status"`, `aria-live="polite"`, `aria-atomic="true"`) in `ActivityPlayer.tsx` announcing hint revelations, answer evaluations, and activity resets.
+- **Added**: High contrast & forced colors enhancements in `index.css` via `@media (forced-colors: active)` ensuring focus rings, selected controls, borders, and state indicators remain visible.
+- **Added**: Multi-cue non-color indicators on alert severity badges, question options, and feedback dialogs.
+- **Verified**: 17 new tests in `test_hardening.py` achieving **209/209 passing backend tests** with 84% code coverage. 6 new frontend accessibility tests in `accessibility.test.mjs` achieving **13/13 passing frontend tests**. Frontend production build passing with 0 errors and 0 type-check errors.
+
 ## [Phase 10: Teacher Dashboard & Insights] — 2026-09-19
 - **Added**: Backend teacher dashboard service (`TeacherDashboardService`) and REST router (`/api/v1/teacher/dashboard`, `/api/v1/teacher/cohort/insights`, `/api/v1/teacher/alerts`, `/api/v1/teacher/learners/{id}/iep-report`).
 - **Added**: Real-time overview KPI aggregations across assigned learners, completed practice counts, cohort accuracy, and active educational alerts.
