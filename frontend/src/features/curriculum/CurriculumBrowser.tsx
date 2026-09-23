@@ -117,7 +117,7 @@ export const CurriculumBrowser: React.FC = () => {
   if (loading) {
     return (
       <div className="p-12 text-center text-gray-500" role="status" aria-live="polite">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-2"></div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-teal-600 border-t-transparent mb-2"></div>
         <p>Loading curricula...</p>
       </div>
     );
@@ -156,9 +156,9 @@ export const CurriculumBrowser: React.FC = () => {
               setSelectedUnit(null);
               setSelectedLesson(null);
             }}
-            className={`px-2 py-1 rounded-md transition-colors ${
+            className={`px-2.5 py-1 rounded-lg transition-colors ${
               !selectedCurriculum
-                ? "font-semibold text-blue-700 bg-blue-50"
+                ? "font-semibold text-teal-800 bg-teal-50 border border-teal-200/60"
                 : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             }`}
           >
@@ -174,9 +174,9 @@ export const CurriculumBrowser: React.FC = () => {
                   setSelectedUnit(null);
                   setSelectedLesson(null);
                 }}
-                className={`px-2 py-1 rounded-md transition-colors ${
+                className={`px-2.5 py-1 rounded-lg transition-colors ${
                   !selectedSubject
-                    ? "font-semibold text-blue-700 bg-blue-50"
+                    ? "font-semibold text-teal-800 bg-teal-50 border border-teal-200/60"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                 }`}
               >
@@ -193,9 +193,9 @@ export const CurriculumBrowser: React.FC = () => {
                   setSelectedUnit(null);
                   setSelectedLesson(null);
                 }}
-                className={`px-2 py-1 rounded-md transition-colors ${
+                className={`px-2.5 py-1 rounded-lg transition-colors ${
                   !selectedUnit
-                    ? "font-semibold text-blue-700 bg-blue-50"
+                    ? "font-semibold text-teal-800 bg-teal-50 border border-teal-200/60"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                 }`}
               >
@@ -209,9 +209,9 @@ export const CurriculumBrowser: React.FC = () => {
               <ChevronRight className="w-4 h-4 text-gray-400" aria-hidden="true" />
               <button
                 onClick={() => setSelectedLesson(null)}
-                className={`px-2 py-1 rounded-md transition-colors ${
+                className={`px-2.5 py-1 rounded-lg transition-colors ${
                   !selectedLesson
-                    ? "font-semibold text-blue-700 bg-blue-50"
+                    ? "font-semibold text-teal-800 bg-teal-50 border border-teal-200/60"
                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                 }`}
               >
@@ -223,7 +223,7 @@ export const CurriculumBrowser: React.FC = () => {
           {selectedLesson && (
             <>
               <ChevronRight className="w-4 h-4 text-gray-400" aria-hidden="true" />
-              <span className="font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-md">
+              <span className="font-semibold text-teal-800 bg-teal-50 border border-teal-200/60 px-2.5 py-1 rounded-lg">
                 {getText(selectedLesson.title)}
               </span>
             </>
@@ -233,7 +233,7 @@ export const CurriculumBrowser: React.FC = () => {
 
       {loadingDetails && (
         <div className="p-8 text-center text-gray-500" role="status">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-blue-600 border-t-transparent mb-2"></div>
+          <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-teal-600 border-t-transparent mb-2"></div>
           <p className="text-sm">Loading details...</p>
         </div>
       )}
@@ -259,7 +259,7 @@ export const CurriculumBrowser: React.FC = () => {
                       <h3 className="text-lg font-bold text-gray-900">
                         {getText(curr.title)}
                       </h3>
-                      <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                      <span className="text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200/60 px-2.5 py-0.5 rounded-full whitespace-nowrap">
                         v{curr.version}
                       </span>
                     </div>
@@ -275,7 +275,7 @@ export const CurriculumBrowser: React.FC = () => {
 
                   <button
                     onClick={() => handleSelectCurriculum(curr)}
-                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white rounded-xl text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2 bg-teal-50 text-teal-800 hover:bg-teal-700 hover:text-white rounded-xl text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-teal-600"
                     aria-label={`Explore ${getText(curr.title)}`}
                   >
                     <span>Explore Hierarchy</span>
@@ -332,7 +332,7 @@ export const CurriculumBrowser: React.FC = () => {
 
                   <button
                     onClick={() => setSelectedSubject(subj)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-medium transition-colors focus:ring-2 focus:ring-indigo-500"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-teal-50 text-teal-800 hover:bg-teal-700 hover:text-white rounded-xl text-sm font-semibold transition-colors focus:ring-2 focus:ring-teal-600"
                   >
                     <span>View Units ({subj.units?.length || 0})</span>
                     <ChevronRight className="w-4 h-4" />
@@ -385,7 +385,7 @@ export const CurriculumBrowser: React.FC = () => {
 
                   <button
                     onClick={() => setSelectedUnit(unit)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white rounded-lg text-sm font-medium transition-colors focus:ring-2 focus:ring-purple-500"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-teal-50 text-teal-800 hover:bg-teal-700 hover:text-white rounded-xl text-sm font-semibold transition-colors focus:ring-2 focus:ring-teal-600"
                   >
                     <span>View Lessons ({unit.lessons?.length || 0})</span>
                     <ChevronRight className="w-4 h-4" />
@@ -438,7 +438,7 @@ export const CurriculumBrowser: React.FC = () => {
 
                   <button
                     onClick={() => setSelectedLesson(lesson)}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-lg text-sm font-medium transition-colors focus:ring-2 focus:ring-emerald-500"
+                    className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-teal-50 text-teal-800 hover:bg-teal-700 hover:text-white rounded-xl text-sm font-semibold transition-colors focus:ring-2 focus:ring-teal-600"
                   >
                     <span>View Objectives ({lesson.learning_objectives?.length || 0})</span>
                     <ChevronRight className="w-4 h-4" />

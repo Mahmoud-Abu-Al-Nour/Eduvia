@@ -9,45 +9,74 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Eduvia brand colors
+        // Shadcn UI Semantic Design Tokens
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+
+        // Eduvia calm educational brand colors (Teal)
         brand: {
-          50:  '#f0f4ff',
-          100: '#e0eaff',
-          200: '#c7d7fe',
-          300: '#a5bbfc',
-          400: '#8198f8',
-          500: '#6272f1',
-          600: '#4f52e5',
-          700: '#4240ca',
-          800: '#3638a3',
-          900: '#303581',
-          950: '#1d1f4b',
+          50:  '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
+          950: '#042f2e',
         },
-        // Accessible warm accent
+        // Accessible warm accent (Amber)
         accent: {
-          50:  '#fff8f0',
-          100: '#feefd8',
-          200: '#fddcaf',
-          300: '#fcc27d',
-          400: '#fa9e49',
-          500: '#f87f22',
-          600: '#e96312',
-          700: '#c24a11',
-          800: '#9b3b15',
-          900: '#7d3215',
-          950: '#441707',
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+          50:  '#fffbeb',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#fbbf24',
+          500: '#f59e0b',
+          600: '#d97706',
+          700: '#b45309',
+          800: '#92400e',
+          900: '#78350f',
+          950: '#451a03',
         },
-        // Semantic colors
+        // Semantic status colors
         success: {
-          DEFAULT: '#22c55e',
+          DEFAULT: '#16a34a',
           foreground: '#ffffff',
         },
         warning: {
-          DEFAULT: '#f59e0b',
-          foreground: '#ffffff',
-        },
-        destructive: {
-          DEFAULT: '#ef4444',
+          DEFAULT: '#d97706',
           foreground: '#ffffff',
         },
       },

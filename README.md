@@ -91,6 +91,22 @@ cd backend && pytest
 cd frontend && npm run test
 ```
 
+### 6. Development Demo Accounts
+
+The local development seed provides pre-configured accounts for testing:
+
+| Role | Email | Development Password | Description |
+|------|-------|----------------------|-------------|
+| **Administrator** | `admin@eduvia.app` | `adminpassword123` | Full access, curriculum oversight, and cohort management |
+| **Teacher** | `teacher@eduvia.app` | `strongpassword123` | Classroom cohort, learner profiles, IEP generation, and adaptive activities |
+
+*Note: These credentials are strictly for local development and demonstration purposes.*
+
+To run or reset the database seed:
+```bash
+python backend/scripts/seed_demo_data.py
+```
+
 ---
 
 ## Repository Structure

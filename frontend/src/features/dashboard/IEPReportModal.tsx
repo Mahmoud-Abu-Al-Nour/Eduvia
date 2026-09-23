@@ -201,7 +201,7 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
               id="iep-period-select"
               value={days}
               onChange={(e) => setDays(Number(e.target.value))}
-              className="text-xs font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+              className="text-xs font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-teal-600 focus:outline-none cursor-pointer"
             >
               <option value={7}>Last 7 Days</option>
               <option value={14}>Last 14 Days</option>
@@ -233,13 +233,13 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
               disabled={!report || loading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
             >
-              <Download className="w-3.5 h-3.5 text-blue-600" />
+              <Download className="w-3.5 h-3.5 text-teal-700" />
               Markdown
             </button>
             <button
               onClick={handleDownloadJSON}
               disabled={!report || loading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               JSON Data
@@ -272,7 +272,7 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
               {/* Executive Summary Cards */}
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <User className="w-4 h-4 text-blue-600" />
+                  <User className="w-4 h-4 text-teal-700" />
                   <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                     Learner Profile & Period Snapshot
                   </h3>
@@ -341,7 +341,7 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
                                 obj.status === "mastered"
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                   : obj.status === "in_progress"
-                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                  ? "bg-teal-50 text-teal-800 border border-teal-200"
                                   : "bg-gray-100 text-gray-600"
                               }`}>
                                 {obj.status.replace("_", " ").toUpperCase()}
@@ -382,16 +382,16 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
               {/* Pedagogical Recommendations */}
               <div className="space-y-2">
                 <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <Sparkles className="w-4 h-4 text-teal-700" />
                   Evidence-Based Pedagogical Recommendations
                 </h3>
-                <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2 text-xs text-indigo-950">
+                <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 space-y-2 text-xs text-teal-950">
                   {report.teacher_recommendations.length === 0 ? (
                     <p className="text-gray-500">Continue current instructional trajectory.</p>
                   ) : (
                     report.teacher_recommendations.map((rec, i) => (
                       <div key={i} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-teal-700 shrink-0 mt-0.5" />
                         <span className="leading-relaxed">{rec}</span>
                       </div>
                     ))
@@ -417,7 +417,7 @@ export const IEPReportModal: React.FC<IEPReportModalProps> = ({
           <span>Report ID: {report?.report_id || "Loading..."}</span>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-semibold rounded-xl transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className="px-4 py-2 bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-semibold rounded-xl transition-colors focus:ring-2 focus:ring-teal-600 focus:outline-none"
           >
             Close
           </button>

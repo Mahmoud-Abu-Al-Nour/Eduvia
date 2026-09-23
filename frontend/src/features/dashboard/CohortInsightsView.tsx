@@ -106,7 +106,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
 
           <button
             onClick={() => void loadCohortInsights()}
-            className="p-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl shadow-sm transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className="p-2 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl shadow-sm transition-colors focus:ring-2 focus:ring-teal-600 focus:outline-none"
             aria-label="Refresh Cohort Data"
           >
             <RefreshCw className="w-4 h-4 text-gray-500" />
@@ -142,7 +142,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Active In Period</span>
-                <Users className="w-4 h-4 text-blue-600" />
+                <Users className="w-4 h-4 text-teal-700" />
               </div>
               <div className="text-2xl font-bold text-gray-900">
                 {insights.active_learners_in_period}{" "}
@@ -154,7 +154,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Cohort Accuracy</span>
-                <Target className="w-4 h-4 text-emerald-600" />
+                <Target className="w-4 h-4 text-teal-700" />
               </div>
               <div className="text-2xl font-bold text-gray-900">
                 {(insights.cohort_accuracy * 100).toFixed(0)}%
@@ -177,7 +177,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Activities Completed</span>
-                <Award className="w-4 h-4 text-indigo-600" />
+                <Award className="w-4 h-4 text-emerald-700" />
               </div>
               <div className="text-2xl font-bold text-gray-900">
                 {insights.total_activities_completed}
@@ -210,7 +210,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
                         </div>
                         <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                           <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            className="bg-teal-700 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -238,11 +238,11 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4 text-center">
-                  <div className="text-2xl font-bold text-blue-800">
+                <div className="bg-teal-50/70 border border-teal-100 rounded-xl p-4 text-center">
+                  <div className="text-2xl font-bold text-teal-800">
                     {insights.mastery_status_counts["in_progress"] || 0}
                   </div>
-                  <div className="text-xs font-semibold text-blue-700 mt-1 uppercase tracking-wide">
+                  <div className="text-xs font-semibold text-teal-700 mt-1 uppercase tracking-wide">
                     In Progress
                   </div>
                 </div>
@@ -278,7 +278,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
                   placeholder="Filter by name or level..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-900 placeholder:text-gray-400 focus:bg-white focus:ring-2 focus:ring-teal-600 focus:outline-none"
                   aria-label="Filter learners by name or level"
                 />
               </div>
@@ -351,7 +351,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
                             learner.overall_accuracy >= 0.75
                               ? "text-emerald-700"
                               : learner.overall_accuracy >= 0.50
-                              ? "text-blue-700"
+                              ? "text-teal-700"
                               : "text-amber-700"
                           }`}>
                             {(learner.overall_accuracy * 100).toFixed(0)}%
@@ -380,7 +380,7 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
                         <td className="py-3.5 px-4 text-right">
                           <button
                             onClick={() => onSelectLearnerForIEP(learner.learner_id, learner.display_name)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white font-semibold transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-50 text-teal-800 hover:bg-teal-700 hover:text-white font-semibold transition-colors focus:ring-2 focus:ring-teal-600 focus:outline-none"
                             aria-label={`View IEP Report for ${learner.display_name}`}
                           >
                             <FileText className="w-3.5 h-3.5" />

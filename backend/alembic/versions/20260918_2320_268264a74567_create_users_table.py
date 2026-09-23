@@ -18,9 +18,15 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+from sqlalchemy.dialects import postgresql
+
+
 def upgrade() -> None:
     """Upgrade schema."""
-    op.execute("CREATE TYPE user_role_enum AS ENUM ('admin', 'teacher')")
+    op.execute(
+        "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role_enum') "
+        "THEN CREATE TYPE user_role_enum AS ENUM ('admin', 'teacher'); END IF; END $$;"
+    )
     op.create_table(
         "users",
         sa.Column("id", sa.UUID(), nullable=False),
@@ -29,7 +35,7 @@ def upgrade() -> None:
         sa.Column("hashed_password", sa.String(length=255), nullable=False),
         sa.Column(
             "role",
-            sa.Enum("admin", "teacher", name="user_role_enum"),
+            postgresql.ENUM("admin", "teacher", name="user_role_enum", create_type=False),
             nullable=False,
             server_default="teacher",
         ),

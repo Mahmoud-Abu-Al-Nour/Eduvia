@@ -107,41 +107,41 @@ export const LearnerManager: React.FC = () => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setIsObsModalOpen(true)}
-                className="inline-flex items-center px-3.5 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                className="inline-flex items-center px-3.5 py-2 text-xs font-semibold text-brand-900 bg-brand-50 hover:bg-brand-100 border border-brand-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-700 transition-colors shadow-2xs"
               >
-                <Plus className="w-4 h-4 mr-1.5" />
+                <Plus className="w-3.5 h-3.5 mr-1.5 text-brand-800" />
                 Record Observation
               </button>
               <button
                 onClick={() => setIsEditModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-sm"
+                className="inline-flex items-center px-4 py-2 text-xs font-semibold text-white bg-brand-800 hover:bg-brand-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-700 transition-colors shadow-xs"
               >
-                <Edit3 className="w-4 h-4 mr-1.5" />
+                <Edit3 className="w-3.5 h-3.5 mr-1.5" />
                 Edit Profile
               </button>
             </div>
           </div>
 
           {/* Profile Header Card */}
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{selectedLearner.name}</h2>
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{selectedLearner.name}</h2>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 capitalize">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-900 border border-brand-200/60 capitalize">
                     {selectedLearner.age_group.replace("_", " ")}
                   </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 capitalize">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 capitalize">
                     {selectedLearner.learning_level}
                   </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                     Status: {selectedLearner.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
               </div>
 
               {selectedLearner.profile?.teacher_overrides?.manual_adjustments_active && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-xs text-amber-800 flex items-center">
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 text-xs text-amber-900 flex items-center">
                   <span className="font-semibold mr-1">Teacher Override Active:</span>
                   Difficulty locked at Level {selectedLearner.profile.teacher_overrides.lock_difficulty_level ?? "N/A"}
                 </div>
@@ -149,7 +149,7 @@ export const LearnerManager: React.FC = () => {
             </div>
 
             {/* Profile Navigation Tabs */}
-            <div className="flex border-b border-gray-200 mt-6 space-x-6">
+            <div className="flex border-b border-slate-200 mt-6 space-x-6">
               {[
                 { id: "overview", label: "Overview & Support", icon: BookOpen },
                 { id: "controls", label: "Preferences & Controls", icon: MessageSquare },
@@ -162,13 +162,13 @@ export const LearnerManager: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setProfileTab(tab.id as any)}
-                    className={`inline-flex items-center py-3 text-sm font-medium border-b-2 transition-colors ${
+                    className={`inline-flex items-center py-3 text-xs font-semibold border-b-2 transition-colors ${
                       isActive
-                        ? "border-blue-600 text-blue-600 font-semibold"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                        ? "border-brand-800 text-brand-900"
+                        : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
                     }`}
                   >
-                    <Icon className="w-4 h-4 mr-2" />
+                    <Icon className={`w-3.5 h-3.5 mr-1.5 ${isActive ? "text-brand-800" : "text-slate-400"}`} />
                     {tab.label}
                   </button>
                 );
@@ -457,28 +457,31 @@ export const LearnerManager: React.FC = () => {
                   tabIndex={0}
                   role="button"
                   aria-label={`View profile for ${learner.name}`}
-                  className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 group"
+                  className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-sm hover:border-brand-300 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 group"
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base">
+                    <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-800 flex items-center justify-center font-bold text-sm">
                       {learner.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-gray-100 text-gray-700 capitalize">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 capitalize">
                       {learner.learning_level}
                     </span>
                   </div>
 
-                  <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-900 transition-colors">
                     {learner.name}
                   </h3>
 
-                  <p className="text-xs text-gray-500 mt-1 capitalize">
+                  <p className="text-xs text-slate-500 mt-1 capitalize">
                     Age Group: {learner.age_group.replace("_", " ")}
                   </p>
 
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
-                    <span>Active Profile</span>
-                    <span className="text-blue-600 font-medium group-hover:underline">View Profile &rarr;</span>
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+                    <span className="text-[11px] text-slate-500 font-medium">Standard Objective Track</span>
+                    <span className="text-brand-800 font-semibold group-hover:underline flex items-center gap-1">
+                      <span>View Profile</span>
+                      <span>&rarr;</span>
+                    </span>
                   </div>
                 </div>
               ))}

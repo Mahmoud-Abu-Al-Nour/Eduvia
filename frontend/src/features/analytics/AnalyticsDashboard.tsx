@@ -80,33 +80,33 @@ export const AnalyticsDashboard: React.FC = () => {
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-12">
       {/* Header & Learner Selector */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <div className="w-9 h-9 rounded-xl bg-brand-50 flex items-center justify-center text-brand-800">
               <BarChart3 className="w-5 h-5" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">Learning Analytics & Mastery</h2>
+            <h2 className="text-xl font-bold text-slate-900">Learning Analytics &amp; Mastery</h2>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-xs sm:text-sm text-slate-600">
             Authoritative performance evaluation, objective mastery tracking, and modality breakdowns.
           </p>
         </div>
 
         {/* Learner Dropdown */}
-        <div className="flex items-center gap-3">
-          <label htmlFor="learner-selector" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
-            <User className="w-4 h-4 text-gray-500" />
+        <div className="flex items-center gap-2.5 bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+          <label htmlFor="learner-selector" className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 whitespace-nowrap">
+            <User className="w-3.5 h-3.5 text-slate-500" />
             <span>Learner:</span>
           </label>
           {loadingLearners ? (
-            <div className="h-10 w-48 bg-gray-100 rounded-xl animate-pulse" />
+            <div className="h-9 w-44 bg-slate-200 rounded-lg animate-pulse" />
           ) : (
             <select
               id="learner-selector"
               value={selectedLearnerId}
               onChange={(e) => setSelectedLearnerId(e.target.value)}
-              className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm font-medium text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-brand-700 focus:outline-none shadow-2xs"
             >
               {learners.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -120,7 +120,7 @@ export const AnalyticsDashboard: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
           {error}
         </div>
       )}
@@ -129,75 +129,75 @@ export const AnalyticsDashboard: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />
+              <div key={i} className="h-32 bg-slate-100 rounded-2xl animate-pulse" />
             ))}
           </div>
-          <div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />
+          <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />
         </div>
       ) : summary && summary.total_events === 0 ? (
         /* Empty State: Zero activities recorded yet */
-        <div className="bg-white p-12 rounded-2xl border border-gray-200 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
-            <Sparkles className="w-8 h-8" />
+        <div className="bg-white p-12 rounded-2xl border border-slate-200/80 text-center space-y-4 shadow-xs">
+          <div className="w-14 h-14 rounded-full bg-brand-50 text-brand-800 flex items-center justify-center mx-auto">
+            <Sparkles className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900">
+          <h3 className="text-lg font-bold text-slate-900">
             No Performance Events Recorded Yet
           </h3>
-          <p className="text-sm text-gray-600 max-w-md mx-auto">
+          <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
             {selectedLearner?.name || "This student"} has not completed any learning activities yet. 
             Once they practice activities in the Learner Player, objective mastery and sensory metrics will populate here.
           </p>
           <a
             href="/learn"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-800 text-white text-xs font-semibold hover:bg-brand-900 transition-colors shadow-xs"
           >
             <span>Launch Activity Session</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </a>
         </div>
       ) : summary ? (
         /* Populated Analytics Dashboard */
         <div className="space-y-8">
           {/* Key Metric KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
             {/* Total Activities */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between text-gray-500 mb-2">
-                <span className="text-xs font-semibold tracking-wider uppercase">Completed Activities</span>
-                <CheckCircle2 className="w-4 h-4 text-teal-600" />
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 mb-2">
+                <span className="text-[11px] font-semibold tracking-wider uppercase">Completed Activities</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               </div>
-              <div className="text-3xl font-extrabold text-gray-900">
+              <div className="text-3xl font-extrabold text-slate-900">
                 {summary.completed_activities}
               </div>
-              <p className="text-xs text-gray-500 mt-1">Total recorded attempts: {summary.total_events}</p>
+              <p className="text-[11px] text-slate-500 mt-1">Recorded attempts: {summary.total_events}</p>
             </div>
 
             {/* Overall Accuracy */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between text-gray-500 mb-2">
-                <span className="text-xs font-semibold tracking-wider uppercase">Overall Accuracy</span>
-                <Award className="w-4 h-4 text-indigo-600" />
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 mb-2">
+                <span className="text-[11px] font-semibold tracking-wider uppercase">Overall Accuracy</span>
+                <Award className="w-4 h-4 text-brand-800" />
               </div>
-              <div className="text-3xl font-extrabold text-indigo-600">
+              <div className="text-3xl font-extrabold text-brand-800">
                 {Math.round(summary.overall_accuracy * 100)}%
               </div>
-              <p className="text-xs text-gray-500 mt-1">Average score: {(summary.avg_score * 100).toFixed(1)}%</p>
+              <p className="text-[11px] text-slate-500 mt-1">Average score: {(summary.avg_score * 100).toFixed(1)}%</p>
             </div>
 
             {/* Avg Response Latency */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="flex items-center justify-between text-gray-500 mb-2">
-                <span className="text-xs font-semibold tracking-wider uppercase">Avg Response Time</span>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div className="flex items-center justify-between text-slate-500 mb-2">
+                <span className="text-[11px] font-semibold tracking-wider uppercase">Avg Response Time</span>
                 <Clock className="w-4 h-4 text-amber-600" />
               </div>
-              <div className="text-3xl font-extrabold text-gray-900">
+              <div className="text-3xl font-extrabold text-slate-900">
                 {(summary.avg_response_time_ms / 1000).toFixed(1)}s
               </div>
-              <p className="text-xs text-gray-500 mt-1">Cognitive processing speed</p>
+              <p className="text-[11px] text-slate-500 mt-1">Cognitive processing speed</p>
             </div>
 
             {/* Assistance Level */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center justify-between text-gray-500 mb-2">
                 <span className="text-xs font-semibold tracking-wider uppercase">Avg Assistance</span>
                 <HelpCircle className="w-4 h-4 text-blue-600" />

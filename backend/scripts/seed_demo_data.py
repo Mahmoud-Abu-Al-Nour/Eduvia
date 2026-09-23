@@ -12,17 +12,27 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.security import get_password_hash
-from app.curriculum.models import Curriculum, Lesson, LearningObjective, Subject, Unit
-from app.database.session import SessionLocal
+from app.core.config import settings
+from app.curriculum.models import (
+    Curriculum,
+    Lesson,
+    LearningObjective,
+    Subject,
+    Unit,
+    objective_prerequisites,
+)
+from app.learners.models import Learner, LearnerProfile
 from app.users.models import User, UserRole
 
 
 async def seed_demo_data() -> None:
     print("Starting Eduvia full demonstration data seeding...")
-    async with SessionLocal() as session:
+    engine = create_async_engine(settings.effective_database_url)
+    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
         # ── 1. Seed Demo Users ────────────────────────────────────────────────
         admin_email = "admin@eduvia.app"
         result = await session.execute(select(User).where(User.email == admin_email))
@@ -144,14 +154,76 @@ async def seed_demo_data() -> None:
             await session.flush()
 
             # Link prerequisite
-            obj_1_10.prerequisites.append(obj_1_5)
+            await session.execute(
+                objective_prerequisites.insert().values(
+                    objective_id=obj_1_10.id, prerequisite_id=obj_1_5.id
+                )
+            )
 
             print("Created demonstration curriculum hierarchy with prerequisites.")
         else:
             print("Demonstration curriculum already exists. Skipping.")
 
+        # ── 3. Seed Demo Learner & Profile ───────────────────────────────────
+        learner_name = "Tariq Al-Mansoor"
+        result = await session.execute(select(Learner).where(Learner.name == learner_name))
+        existing_learner = result.scalars().first()
+        if not existing_learner:
+            demo_learner = Learner(
+                name=learner_name,
+                age_group="primary",
+                learning_level="beginner",
+                is_active=True,
+                teacher_id=teacher.id,
+            )
+            session.add(demo_learner)
+            await session.flush()
+
+            demo_profile = LearnerProfile(
+                learner_id=demo_learner.id,
+                communication_preferences={
+                    "primary_mode": "verbal",
+                    "receptive_preference": ["verbal", "visual_cues"],
+                    "expressive_preference": ["verbal"],
+                    "notes": "Responds with high engagement to visual manipulatives and calm pacing.",
+                },
+                current_skill_level={
+                    "literacy_stage": "emerging",
+                    "numeracy_stage": "beginner",
+                    "attention_span_minutes": 15,
+                    "strengths": ["visual memory", "enthusiastic learner"],
+                    "focus_areas": ["number counting", "shape sorting"],
+                },
+                support_requirements={
+                    "sensory_accommodations": ["low_distraction_lighting"],
+                    "pacing": "standard",
+                    "guidance_level": "moderate",
+                    "frequent_breaks": True,
+                },
+                teacher_constraints={
+                    "max_session_duration_minutes": 20,
+                    "excluded_modalities": [],
+                    "required_modalities": ["Visual"],
+                    "custom_guidelines": "Provide positive feedback after every completed step.",
+                },
+                teacher_notes="Enjoys math activities and shows steady progress in numeracy.",
+                teacher_overrides={},
+                modality_effectiveness={"visual": 0.85, "interactive": 0.75, "auditory": 0.60},
+                strategy_effectiveness={"scaffolded_hints": 0.88, "direct_instruction": 0.70},
+                activity_type_effectiveness={"matching": 0.90, "sorting": 0.82},
+                difficulty_tolerance=1.5,
+                assistance_requirements={"preferred_prompt_hierarchy": "least_to_most"},
+                response_behavior={"typical_latency_seconds": 3.2},
+                observations={"recorded_by": "Alice Teacher", "date": "2026-09-20"},
+            )
+            session.add(demo_profile)
+            print(f"Created demo learner and profile: {learner_name}")
+        else:
+            print(f"Demo learner already exists: {learner_name}")
+
         await session.commit()
-        print("Demo data seeding completed successfully.")
+    await engine.dispose()
+    print("Demo data seeding completed successfully.")
 
 
 if __name__ == "__main__":

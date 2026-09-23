@@ -91,10 +91,10 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-indigo-50/80 to-teal-50/50 px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-gradient-to-r from-brand-50/90 to-teal-50/60 px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-teal-500 ring-4 ring-teal-100" />
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-600">
+          <span className="flex h-2.5 w-2.5 rounded-full bg-brand-700 ring-4 ring-brand-100" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-brand-950">
             Recommended Next Step
           </h3>
         </div>
@@ -113,17 +113,17 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
       <div className="p-6">
         {/* Recommended Target Title & Badges */}
         <div className="mb-4">
-          <h4 className="text-xl font-bold text-slate-800 leading-snug">
+          <h4 className="text-xl font-bold text-slate-900 leading-snug">
             {recommendation.objective_title}
           </h4>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 capitalize">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-50 text-brand-900 border border-brand-200/70 capitalize">
               Modality: {recommendation.recommended_modality}
             </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-100 capitalize">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200/70 capitalize">
               Activity: {recommendation.recommended_activity_type.replace('_', ' ')}
             </span>
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-100 capitalize">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200/70 capitalize">
               Strategy: {recommendation.recommended_strategy.replace('_', ' ')}
             </span>
             <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
@@ -133,11 +133,11 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
         </div>
 
         {/* Explainable Rationale Box */}
-        <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 mb-5">
+        <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/70 mb-5">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
             Pedagogical Rationale
           </p>
-          <p className="text-sm text-slate-700 leading-relaxed">
+          <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
             {recommendation.rationale}
           </p>
           {recommendation.applied_constraints.length > 0 && (
@@ -146,7 +146,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
               {recommendation.applied_constraints.map((c, idx) => (
                 <span
                   key={idx}
-                  className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-slate-200/70 text-slate-600 font-mono"
+                  className="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-slate-200/70 text-slate-700 font-mono"
                 >
                   {c}
                 </span>
@@ -173,7 +173,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
             type="button"
             onClick={handleSyncProfile}
             disabled={isSyncing || isLaunching}
-            className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
+            className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors disabled:opacity-50"
           >
             {isSyncing ? 'Syncing Profile...' : 'Update Profile Weights'}
           </button>
@@ -182,7 +182,7 @@ export const RecommendationCard: React.FC<RecommendationCardProps> = ({
             type="button"
             onClick={handleLaunchActivity}
             disabled={isLaunching || isSyncing}
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm hover:shadow transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-5 py-2.5 text-sm font-semibold text-white bg-brand-800 hover:bg-brand-900 rounded-xl shadow-xs hover:shadow transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isLaunching ? (
               <>

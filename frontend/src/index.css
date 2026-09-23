@@ -1,69 +1,85 @@
-@import "tailwindcss";
-
-/* ── Google Fonts ────────────────────────────────────────────────────────── */
+/* ── Google Fonts (Must precede all rules) ────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
-/* ── CSS Custom Properties (Design Tokens) ───────────────────────────────── */
-:root {
-  /* Brand palette — mapped from tailwind.config */
-  --color-brand-500: #6272f1;
-  --color-brand-600: #4f52e5;
-  --color-brand-700: #4240ca;
-  --color-accent-400: #fa9e49;
-  --color-accent-500: #f87f22;
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
-  /* Surface colors */
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+/* ── CSS Custom Properties (Calm EdTech Design Tokens) ───────────────────── */
+:root {
+  /* Brand palette — Calm Educational Teal & Warm Amber */
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+  --color-brand-950: #042f2e;
+
+  --color-accent-50: #fffbeb;
+  --color-accent-100: #fef3c7;
+  --color-accent-200: #fde68a;
+  --color-accent-300: #fcd34d;
+  --color-accent-400: #fbbf24;
+  --color-accent-500: #f59e0b;
+  --color-accent-600: #d97706;
+  --color-accent-700: #b45309;
+
+  /* Surface & Component tokens (Calm, Warm Neutral Background) */
+  --background: 36 25% 97%;       /* #faf8f5 warm off-white */
+  --foreground: 215 28% 17%;       /* #0f172a deep charcoal */
+  --card: 0 0% 100%;               /* #ffffff pure white surface */
+  --card-foreground: 215 28% 17%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
-  --primary: 232 80% 65%;
+  --popover-foreground: 215 28% 17%;
+  --primary: 173 58% 30%;          /* #20675f deep educational teal */
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 96%;
-  --secondary-foreground: 222 47% 11%;
-  --muted: 220 14% 96%;
-  --muted-foreground: 220 9% 46%;
-  --accent: 29 95% 54%;
+  --secondary: 173 35% 95%;        /* subtle soft teal tint */
+  --secondary-foreground: 173 58% 24%;
+  --muted: 214 15% 93%;            /* light neutral gray */
+  --muted-foreground: 215 16% 45%; /* accessible secondary text */
+  --accent: 32 95% 48%;            /* warm amber */
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 60%;
+  --destructive: 0 72% 51%;        /* accessible red */
   --destructive-foreground: 0 0% 100%;
-  --border: 220 13% 91%;
-  --input: 220 13% 91%;
-  --ring: 232 80% 65%;
-  --radius: 0.5rem;
+  --border: 214 20% 89%;           /* crisp, soft border */
+  --input: 214 20% 89%;
+  --ring: 173 58% 32%;             /* teal focus ring */
+  --radius: 0.625rem;              /* 10px rounded corners */
 
   /* Typography */
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Outfit', 'Inter', system-ui, sans-serif;
 
   /* Accessibility */
-  --focus-ring-color: var(--color-brand-500);
-  --focus-ring-width: 3px;
+  --focus-ring-color: #0f766e;
+  --focus-ring-width: 2.5px;
   --focus-ring-offset: 2px;
 }
 
 .dark {
-  --background: 222 47% 6%;
-  --foreground: 213 31% 91%;
-  --card: 222 47% 9%;
-  --card-foreground: 213 31% 91%;
-  --popover: 222 47% 9%;
-  --popover-foreground: 213 31% 91%;
-  --primary: 232 80% 65%;
+  --background: 215 28% 10%;
+  --foreground: 210 20% 96%;
+  --card: 215 28% 13%;
+  --card-foreground: 210 20% 96%;
+  --popover: 215 28% 13%;
+  --popover-foreground: 210 20% 96%;
+  --primary: 173 58% 42%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 222 47% 14%;
-  --secondary-foreground: 213 31% 91%;
-  --muted: 222 47% 14%;
-  --muted-foreground: 215 14% 65%;
-  --accent: 29 95% 54%;
+  --secondary: 215 28% 18%;
+  --secondary-foreground: 210 20% 96%;
+  --muted: 215 28% 18%;
+  --muted-foreground: 215 16% 65%;
+  --accent: 32 95% 48%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 63% 45%;
+  --destructive: 0 63% 52%;
   --destructive-foreground: 0 0% 100%;
-  --border: 222 47% 18%;
-  --input: 222 47% 18%;
-  --ring: 232 80% 65%;
+  --border: 215 20% 22%;
+  --input: 215 20% 22%;
+  --ring: 173 58% 45%;
 }
 
 /* ── Base Styles ─────────────────────────────────────────────────────────── */

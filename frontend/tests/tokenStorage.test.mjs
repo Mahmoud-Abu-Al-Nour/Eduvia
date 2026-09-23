@@ -11,8 +11,16 @@ global.window = {
     clear() { storage.clear(); },
   }
 };
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
-import { tokenStorage, TOKEN_KEYS } from "../src/services/tokenStorage.ts";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const source = fs.readFileSync(path.resolve(__dirname, "../src/services/tokenStorage.ts"), "utf-8");
+const transpiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+const dataUri = `data:text/javascript;base64,${Buffer.from(transpiled).toString("base64")}`;
+const { tokenStorage, TOKEN_KEYS } = await import(dataUri);
 
 test("tokenStorage canonical keys", () => {
   assert.equal(TOKEN_KEYS.ACCESS_TOKEN, "eduvia_access_token");

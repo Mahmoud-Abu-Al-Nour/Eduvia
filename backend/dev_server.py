@@ -970,7 +970,7 @@ class MockTeacherDashboardService:
                 InterventionAlert(
                     alert_id=f"alert_demo_{target.id}",
                     learner_id=target.id,
-                    learner_display_name=target.display_name,
+                    learner_display_name=target.name,
                     trigger_type=AlertTriggerType.high_assistance,
                     severity=AlertSeverity.warning,
                     message="Learner required Level 2 assistance across 3 consecutive matching attempts.",

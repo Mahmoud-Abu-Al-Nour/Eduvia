@@ -1,6 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/AuthContext";
-import { BookOpen, Users, BarChart3, LogOut, PlayCircle, TrendingUp, Sparkles, GraduationCap } from "lucide-react";
+import {
+  BookOpen,
+  Users,
+  BarChart3,
+  LogOut,
+  PlayCircle,
+  TrendingUp,
+  Compass,
+  GraduationCap,
+  Menu,
+  X,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
 import { LearnerManager } from "@/features/learners/LearnerManager";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
@@ -11,17 +24,29 @@ import { IEPReportModal } from "./IEPReportModal";
 import { recommendationsApi } from "@/services/api";
 import api from "@/services/api";
 import type { Learner, RecommendationDecision } from "@/types";
-
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 interface DashboardPageProps {
   initialTab?: string;
 }
 
+const TABS = [
+  { id: "overview", label: "Overview", icon: BarChart3, description: "Daily classroom briefing & intervention alerts" },
+  { id: "cohort", label: "Classroom Cohort", icon: GraduationCap, description: "Cohort learning progress & distribution" },
+  { id: "activities", label: "Activities & Practice", icon: PlayCircle, description: "Calibrated multi-sensory learner practice" },
+  { id: "curriculum", label: "Curriculum", icon: BookOpen, description: "Standardized objectives & structured milestones" },
+  { id: "learners", label: "Learners", icon: Users, description: "Individual learner profiles & sensory profiles" },
+  { id: "analytics", label: "Analytics & Mastery", icon: TrendingUp, description: "Objective mastery & delivery effectiveness" },
+  { id: "recommendations", label: "Adaptive Engine", icon: Compass, description: "Teacher-guided sequencing recommendations" },
+];
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "overview" }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // IEP Modal state (Phase 10)
+  // IEP Modal state
   const [iepLearner, setIepLearner] = useState<{ id: string; name: string } | null>(null);
   const [isIepOpen, setIsIepOpen] = useState<boolean>(false);
 
@@ -81,27 +106,57 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
     }
   }, [activeTab, selectedLearnerId]);
 
+  const currentTabObj = TABS.find((t) => t.id === activeTab) || TABS[0];
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
-            <span className="text-white font-bold text-xl">E</span>
+    <div className="min-h-screen bg-[#faf8f5] flex text-slate-900">
+      {/* ── Mobile Sidebar Backdrop ───────────────────────────────────────── */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200/90 flex flex-col transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-brand-800 text-white flex items-center justify-center font-bold text-base shadow-2xs">
+              E
+            </div>
+            <div>
+              <span className="font-bold text-base tracking-tight text-slate-900 leading-none block">
+                Eduvia
+              </span>
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider block mt-0.5">
+                Special Ed Platform
+              </span>
+            </div>
           </div>
-          <span className="text-xl font-bold text-gray-900">Eduvia</span>
+          <button
+            type="button"
+            className="lg:hidden p-1 rounded-md text-slate-400 hover:text-slate-600"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        
-        <nav role="tablist" aria-label="Teacher Dashboard Tabs" className="flex-1 px-4 py-6 space-y-1">
-          {[
-            { id: "overview", label: "Overview", icon: BarChart3 },
-            { id: "cohort", label: "Classroom Cohort", icon: GraduationCap },
-            { id: "activities", label: "Activities & Practice", icon: PlayCircle },
-            { id: "curriculum", label: "Curriculum", icon: BookOpen },
-            { id: "learners", label: "Learners", icon: Users },
-            { id: "analytics", label: "Analytics & Mastery", icon: TrendingUp },
-            { id: "recommendations", label: "Adaptive Engine", icon: Sparkles },
-          ].map((tab) => {
+
+        {/* Navigation Tabs */}
+        <nav
+          role="tablist"
+          aria-label="Teacher Dashboard Tabs"
+          className="flex-1 px-3 py-4 space-y-1 overflow-y-auto"
+        >
+          {TABS.map((tab) => {
             const Icon = tab.icon;
             const isSelected = activeTab === tab.id;
             return (
@@ -113,57 +168,96 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
                 aria-selected={isSelected}
                 aria-controls={`tabpanel-${tab.id}`}
                 tabIndex={isSelected ? 0 : -1}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-left focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 ${
                   isSelected
-                    ? "bg-blue-50 text-blue-700 font-semibold shadow-xs"
-                    : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-brand-50 text-brand-900 font-semibold shadow-2xs border border-brand-200/70"
+                    : "text-slate-600 hover:bg-slate-100/70 hover:text-slate-900"
                 }`}
               >
                 <Icon
-                  className={`w-5 h-5 mr-3 shrink-0 ${
-                    isSelected ? "text-blue-700" : "text-gray-400"
+                  className={`w-4 h-4 mr-3 shrink-0 ${
+                    isSelected ? "text-brand-800" : "text-slate-400"
                   }`}
                   aria-hidden="true"
                 />
-                <span>{tab.label}</span>
+                <span className="truncate">{tab.label}</span>
               </button>
             );
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center mb-4 px-3">
-            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold mr-3">
+        {/* User Card & Logout */}
+        <div className="p-3 border-t border-slate-200/80 bg-slate-50/50">
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-white border border-slate-200/70 shadow-2xs mb-2">
+            <div className="w-8 h-8 rounded-full bg-brand-800 text-white flex items-center justify-center font-bold text-xs shrink-0">
               {user?.full_name?.charAt(0) || user?.email.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{user?.full_name || "Teacher"}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+              <p className="text-xs font-semibold text-slate-900 truncate">
+                {user?.full_name || "Educator"}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">
+                  {user?.role || "Teacher"}
+                </p>
+              </div>
             </div>
           </div>
-          
+
           <button
             onClick={logout}
-            className="flex w-full items-center px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+            type="button"
+            className="flex w-full items-center justify-center px-3 py-2 text-xs font-semibold text-slate-600 hover:text-rose-700 hover:bg-rose-50/60 rounded-lg transition-colors border border-transparent hover:border-rose-200/50"
           >
-            <LogOut className="w-5 h-5 mr-3 text-red-500" />
+            <LogOut className="w-3.5 h-3.5 mr-2" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col focus:outline-none">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
-          <h1 className="text-xl font-semibold text-gray-900 capitalize">{activeTab}</h1>
+      {/* ── Main Content Area ────────────────────────────────────────────── */}
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 flex flex-col focus:outline-none min-w-0 overflow-y-auto"
+      >
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200/80 sticky top-0 z-30 flex items-center justify-between px-4 sm:px-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-slate-800 focus:outline-none"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open navigation sidebar"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+              <span>Workspace</span>
+              <ChevronRight className="w-3 h-3 text-slate-300" />
+              <span className="text-slate-800 font-semibold">{currentTabObj.label}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Badge variant="secondary" className="hidden sm:inline-flex items-center gap-1.5 py-1 px-2.5 text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-700" />
+              <span>Standardized Curriculum Mode</span>
+            </Badge>
+          </div>
         </header>
-        
+
+        {/* Tab Panel Body */}
         <div
           role="tabpanel"
           id={`tabpanel-${activeTab}`}
           aria-labelledby={`tab-${activeTab}`}
-          className="flex-1 p-8 overflow-auto"
+          className="flex-1 p-4 sm:p-8 focus:outline-none max-w-7xl w-full mx-auto"
         >
           {activeTab === "overview" && (
             <TeacherOverview
@@ -179,58 +273,82 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
           )}
 
           {activeTab === "activities" && (
-            <div className="max-w-4xl space-y-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Learner Activity Launcher</h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Experience the distraction-free learner interface with TTS narration, progressive hints, and Cognitive Calm feedback.
-                    </p>
-                  </div>
-                  <a
-                    href="/learn"
-                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 shadow-sm transition-all"
-                  >
-                    <PlayCircle className="w-5 h-5" />
-                    <span>Launch Learner Experience</span>
-                  </a>
-                </div>
-              </div>
-
-              {/* Supported Modalities Showcase */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {[
-                  { name: "Multiple Choice", type: "multiple_choice", desc: "Select target among calibrated options" },
-                  { name: "Matching Pairs", type: "matching", desc: "Connect related items across two columns" },
-                  { name: "Sequential Ordering", type: "ordering", desc: "Arrange items along an ordered continuum" },
-                  { name: "Visual Identification", type: "visual_identification", desc: "Identify target items in accessible scenes" },
-                  { name: "Drag & Drop", type: "drag_drop", desc: "Categorize items into distinct target buckets" },
-                ].map((mod) => (
-                  <div key={mod.type} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                    <div>
-                      <h3 className="font-bold text-gray-900 mb-1">{mod.name}</h3>
-                      <p className="text-xs text-gray-600 mb-4">{mod.desc}</p>
+            <div className="space-y-6 max-w-5xl">
+              <Card className="border-brand-200/80 bg-gradient-to-r from-brand-50/60 to-white shadow-xs">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="default" className="text-[10px] uppercase tracking-wider">
+                          Distraction-Free Environment
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-xl font-bold text-slate-900">
+                        Learner Activity Player
+                      </CardTitle>
+                      <CardDescription className="text-xs max-w-2xl">
+                        Accessible learning interface equipped with text-to-speech narration, progressive hints, large touch targets, and Cognitive Calm feedback.
+                      </CardDescription>
                     </div>
+
                     <a
-                      href={`/learn?activity_type=${mod.type}`}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white text-xs font-semibold transition-colors"
+                      href="/learn"
+                      className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-brand-800 text-white font-semibold hover:bg-brand-900 shadow-xs transition-all text-sm shrink-0"
                     >
                       <PlayCircle className="w-4 h-4" />
-                      <span>Practice {mod.name}</span>
+                      <span>Launch Player</span>
                     </a>
                   </div>
-                ))}
+                </CardHeader>
+              </Card>
+
+              {/* Supported Modalities Showcase */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                    5 Validated Delivery Modalities
+                  </h3>
+                  <span className="text-xs text-slate-500">Curriculum-Aligned Formats</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {[
+                    { name: "Multiple Choice", type: "multiple_choice", desc: "Select target among calibrated options with hint scaffolding" },
+                    { name: "Matching Pairs", type: "matching", desc: "Connect related items across concrete and abstract representations" },
+                    { name: "Sequential Ordering", type: "ordering", desc: "Arrange items along an ordered progressive continuum" },
+                    { name: "Visual Identification", type: "visual_identification", desc: "Identify target elements in accessible high-contrast scenes" },
+                    { name: "Tactile Drag & Drop", type: "drag_drop", desc: "Categorize items into distinct target buckets with touch targets" },
+                  ].map((mod) => (
+                    <Card key={mod.type} className="flex flex-col justify-between hover:border-brand-200 transition-all">
+                      <CardHeader className="pb-3">
+                        <Badge variant="outline" className="w-fit text-[10px] mb-1 font-mono uppercase">
+                          {mod.type}
+                        </Badge>
+                        <CardTitle className="text-base font-semibold">{mod.name}</CardTitle>
+                        <CardDescription className="text-xs">{mod.desc}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <a
+                          href={`/learn?activity_type=${mod.type}`}
+                          className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-lg bg-brand-50 text-brand-900 hover:bg-brand-100 text-xs font-semibold border border-brand-200/60 transition-colors"
+                        >
+                          <PlayCircle className="w-3.5 h-3.5 text-brand-700" />
+                          <span>Preview {mod.name}</span>
+                        </a>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
             </div>
           )}
-          
+
           {activeTab === "curriculum" && (
             <div className="max-w-6xl">
               <CurriculumBrowser />
             </div>
           )}
-          
+
           {activeTab === "learners" && (
             <div className="max-w-6xl">
               <LearnerManager />
@@ -245,50 +363,60 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
 
           {activeTab === "recommendations" && (
             <div className="max-w-4xl space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-600" />
-                    Adaptive Learning Intelligence Engine
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Deterministic curriculum sequencing, difficulty calibration, and modality optimization.
-                  </p>
-                </div>
-                {learners.length > 0 && (
-                  <div className="flex items-center gap-3">
-                    <label htmlFor="learner-select" className="text-sm font-semibold text-gray-700 whitespace-nowrap">
-                      Select Learner:
-                    </label>
-                    <select
-                      id="learner-select"
-                      value={selectedLearnerId}
-                      onChange={(e) => setSelectedLearnerId(e.target.value)}
-                      className="rounded-xl border-gray-300 shadow-sm text-sm font-medium py-2 px-3 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 text-gray-900"
-                    >
-                      {learners.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name} ({l.learning_level})
-                        </option>
-                      ))}
-                    </select>
+              <Card className="border-slate-200/90 shadow-xs bg-white">
+                <CardHeader className="pb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
+                          Teacher Decision Cockpit
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <Compass className="w-5 h-5 text-brand-800" />
+                        Adaptive Sequencing Recommendations
+                      </CardTitle>
+                      <CardDescription className="text-xs mt-1">
+                        Deterministic curriculum progression calibrated to each learner&apos;s observed performance and sensory preferences.
+                      </CardDescription>
+                    </div>
+
+                    {learners.length > 0 && (
+                      <div className="flex items-center gap-2.5 bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                        <label htmlFor="learner-select" className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                          Active Learner:
+                        </label>
+                        <select
+                          id="learner-select"
+                          value={selectedLearnerId}
+                          onChange={(e) => setSelectedLearnerId(e.target.value)}
+                          className="rounded-lg border-slate-300 text-xs font-semibold py-1.5 px-2.5 bg-white text-slate-900 focus:ring-brand-700 focus:border-brand-700 shadow-2xs"
+                        >
+                          {learners.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.name} ({l.learning_level})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </CardHeader>
+              </Card>
 
               {loadingLearners ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
-                  <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-3" />
-                  <p className="text-sm text-gray-600">Loading learners...</p>
+                <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+                  <div className="animate-spin w-7 h-7 border-3 border-brand-800 border-t-transparent rounded-full mx-auto mb-3" />
+                  <p className="text-xs text-slate-600 font-medium">Loading classroom learners...</p>
                 </div>
               ) : learners.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-gray-200">
-                  <p className="text-sm text-gray-600">No learners found in your classroom.</p>
+                <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+                  <p className="text-sm text-slate-600 font-medium">No learners found in your assigned cohort.</p>
                 </div>
               ) : (
                 <>
                   {recError && (
-                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs">
                       {recError}
                     </div>
                   )}
@@ -305,7 +433,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
         </div>
       </main>
 
-      {/* IEP Progress Report Modal (Phase 10) */}
+      {/* IEP Progress Report Modal */}
       <IEPReportModal
         isOpen={isIepOpen}
         onClose={() => setIsIepOpen(false)}

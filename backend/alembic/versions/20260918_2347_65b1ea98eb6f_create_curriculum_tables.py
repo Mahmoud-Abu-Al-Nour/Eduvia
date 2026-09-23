@@ -30,6 +30,8 @@ def upgrade() -> None:
         sa.Column("version", sa.String(), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column("created_by_id", sa.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
     # subjects table
@@ -40,6 +42,8 @@ def upgrade() -> None:
         sa.Column("title", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("description", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("order_index", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
     # units table
@@ -50,6 +54,8 @@ def upgrade() -> None:
         sa.Column("title", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("description", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("order_index", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
     # lessons table
@@ -60,6 +66,8 @@ def upgrade() -> None:
         sa.Column("title", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("description", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("order_index", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
     # learning_objectives table
@@ -73,6 +81,8 @@ def upgrade() -> None:
         sa.Column("assessment_criteria", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("order_index", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
 
     # objective_prerequisites association table

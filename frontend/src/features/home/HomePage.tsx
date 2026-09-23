@@ -1,537 +1,350 @@
-/**
- * Eduvia Home Page — Phase 0 Initialization Showcase
- *
- * Displays the Eduvia platform overview and system connectivity status.
- * This page will be replaced by the Teacher Dashboard in Phase 10.
- *
- * Accessibility requirements met:
- * - Single h1 per page
- * - Semantic HTML structure
- * - Sufficient color contrast
- * - Keyboard navigable
- * - Focus-visible styles
- */
-import { motion } from 'framer-motion'
+import React from 'react'
+import { Link } from 'react-router-dom'
 import {
-  BookOpen,
-  Brain,
   CheckCircle2,
   ChevronRight,
-  Database,
-  Heart,
-  RefreshCw,
-  Server,
-  Sparkles,
-  Users,
-  XCircle,
-  Zap,
+  ShieldCheck,
+  HeartHandshake,
+  Layers,
+  ArrowRight,
+  Eye,
+  ListOrdered,
+  MoveRight,
+  MousePointerClick,
+  Compass,
+  FileCheck2,
 } from 'lucide-react'
 import { useHealth } from '@/hooks/useHealth'
-import { cn } from '@/utils/cn'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const FEATURES = [
+const CORE_LOOP_STEPS = [
   {
-    icon: BookOpen,
-    title: 'Structured Curriculum',
-    description:
-      'Same learning objectives delivered through personalized methods — visual, audio, interactive, and more.',
-    color: 'text-brand-500',
-    bg: 'bg-brand-50',
+    step: '01',
+    title: 'Standard Curriculum',
+    description: 'Shared, structured curriculum benchmarks aligned with national and regional educational standards.',
+    highlight: 'Unified Goals',
   },
   {
-    icon: Brain,
-    title: 'Adaptive Intelligence',
-    description:
-      'Evidence-based learner profiling tracks what works — without permanent labels or medical diagnoses.',
-    color: 'text-purple-500',
-    bg: 'bg-purple-50',
+    step: '02',
+    title: 'Same Learning Objective',
+    description: 'Every learner targets the exact same educational milestone — no watered-down expectations.',
+    highlight: 'High Expectations',
   },
   {
-    icon: Users,
-    title: 'Teacher-Led',
-    description:
-      'Teachers remain the decision makers. AI provides recommendations — never autonomous diagnoses.',
-    color: 'text-accent-500',
-    bg: 'bg-accent-50',
+    step: '03',
+    title: 'Differentiated Delivery',
+    description: 'Content adapts dynamically across visual, interactive, audial, and kinesthetic presentation modes.',
+    highlight: 'Tailored Approach',
   },
   {
-    icon: Heart,
-    title: 'Accessibility First',
-    description:
-      'Large touch targets, clear typography, reduced motion support, and high contrast for all learners.',
-    color: 'text-rose-500',
-    bg: 'bg-rose-50',
+    step: '04',
+    title: 'Evidence-Based Tracking',
+    description: 'Records concrete response latency, assistance levels, and accuracy without diagnostic labeling.',
+    highlight: 'Objective Data',
   },
   {
-    icon: Zap,
-    title: '5 Activity Types',
-    description:
-      'Matching, Multiple Choice, Ordering, Visual Identification, and Drag & Drop — all schema-driven.',
-    color: 'text-amber-500',
-    bg: 'bg-amber-50',
-  },
-  {
-    icon: Sparkles,
-    title: 'RAG-Powered Generation',
-    description:
-      'Gemini generates activities guided by a real educational knowledge base — not free-form invention.',
-    color: 'text-emerald-500',
-    bg: 'bg-emerald-50',
+    step: '05',
+    title: 'Teacher-Led Adaptation',
+    description: 'Empirical learning patterns inform teacher recommendations for subsequent targeted practice.',
+    highlight: 'Teacher In Control',
   },
 ]
 
-const PHASES = [
-  { phase: '0', name: 'Initialization', status: 'current' },
-  { phase: '1', name: 'Auth & Database', status: 'upcoming' },
-  { phase: '2', name: 'Curriculum', status: 'upcoming' },
-  { phase: '3', name: 'Learner Profiles', status: 'upcoming' },
-  { phase: '4', name: 'Activity Engine', status: 'upcoming' },
-  { phase: '5', name: 'Learner Experience', status: 'upcoming' },
-  { phase: '6', name: 'Performance Tracking', status: 'upcoming' },
-  { phase: '7', name: 'Learning Analytics', status: 'upcoming' },
-  { phase: '8', name: 'Adaptive Engine', status: 'upcoming' },
-  { phase: '9', name: 'Gemini + RAG', status: 'upcoming' },
+const MODALITIES = [
+  {
+    icon: Eye,
+    title: 'Visual Identification',
+    description: 'Targeted visual mapping with gentle auditory reinforcement for early symbol and quantity recognition.',
+    badge: 'Foundational',
+  },
+  {
+    icon: MousePointerClick,
+    title: 'Scaffolded Choice',
+    description: 'Multiple-choice prompts with graduated hint ladders that preserve confidence while measuring independent mastery.',
+    badge: 'Formative',
+  },
+  {
+    icon: Layers,
+    title: 'Matching & Associations',
+    description: 'Multi-sensory association connecting abstract numerical digits to concrete real-world quantities.',
+    badge: 'Concept Link',
+  },
+  {
+    icon: ListOrdered,
+    title: 'Progressive Ordering',
+    description: 'Sequential ordering tasks designed with high touch targets and immediate, gentle auditory validation.',
+    badge: 'Sequence',
+  },
+  {
+    icon: MoveRight,
+    title: 'Tactile Drag & Drop',
+    description: 'Kinesthetic grouping activities calibrated for touchscreens, switches, and assistive pointer devices.',
+    badge: 'Kinesthetic',
+  },
 ]
 
-// ── Animation Variants ────────────────────────────────────────────────────
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-}
-
-// ── Sub-Components ────────────────────────────────────────────────────────
-
-function StatusBadge({
-  healthy,
-  label,
-}: {
-  healthy: boolean | null | undefined
-  label: string
-}) {
-  if (healthy === null || healthy === undefined) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-gray-400">
-        <div className="w-2 h-2 rounded-full bg-gray-300 animate-pulse" />
-        <span>{label}</span>
-      </div>
-    )
-  }
-  return (
-    <div
-      className={cn(
-        'flex items-center gap-2 text-sm font-medium',
-        healthy ? 'text-emerald-600' : 'text-red-500',
-      )}
-      role="status"
-      aria-label={`${label}: ${healthy ? 'connected' : 'unavailable'}`}
-    >
-      {healthy ? (
-        <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-      ) : (
-        <XCircle className="w-4 h-4" aria-hidden="true" />
-      )}
-      <span>{label}</span>
-    </div>
-  )
-}
-
-function SystemStatusPanel() {
-  const { health, isLoading, error, refresh } = useHealth()
+export const HomePage: React.FC = () => {
+  const { health, isLoading: healthLoading } = useHealth()
 
   return (
-    <motion.div
-      variants={itemVariants}
-      className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
-      aria-labelledby="system-status-heading"
-    >
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Server className="w-5 h-5 text-gray-500" aria-hidden="true" />
-          <h2 id="system-status-heading" className="font-semibold text-gray-800">
-            System Status
-          </h2>
-        </div>
-        <button
-          onClick={refresh}
-          disabled={isLoading}
-          className={cn(
-            'p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100',
-            'transition-colors focus-visible:ring-2 focus-visible:ring-brand-500',
-            'disabled:opacity-50',
-          )}
-          aria-label="Refresh system status"
-          id="refresh-status-btn"
-        >
-          <RefreshCw
-            className={cn('w-4 h-4', isLoading && 'animate-spin')}
-            aria-hidden="true"
-          />
-        </button>
-      </div>
-
-      <div className="p-6 space-y-3">
-        {error ? (
-          <div
-            className="text-sm text-red-600 bg-red-50 rounded-lg p-3"
-            role="alert"
-          >
-            <strong>Backend unreachable:</strong> {error}
-            <p className="mt-1 text-xs text-red-500">
-              Make sure the backend is running on localhost:8000
-            </p>
-          </div>
-        ) : (
-          <>
-            <StatusBadge
-              healthy={health ? true : null}
-              label="Backend API"
-            />
-            <StatusBadge
-              healthy={health?.dependencies?.database?.healthy}
-              label="PostgreSQL"
-            />
-            <StatusBadge
-              healthy={health?.dependencies?.qdrant?.healthy}
-              label="Qdrant"
-            />
-            <StatusBadge
-              healthy={health?.dependencies?.ai_provider?.configured}
-              label="Gemini AI"
-            />
-          </>
-        )}
-
-        {health && (
-          <div className="pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400">
-              API v{health.version} · Uptime {Math.round((health.uptime_seconds ?? 0) / 60)}m
-            </p>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  )
-}
-
-// ── Main Component ────────────────────────────────────────────────────────
-
-export function HomePage() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      {/* Skip to main content — accessibility */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-brand-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg"
-      >
-        Skip to main content
-      </a>
-
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <header className="border-b border-gray-200/60 bg-white/70 backdrop-blur-sm sticky top-0 z-40">
+    <div className="min-h-screen bg-[#faf8f5] text-slate-900 selection:bg-teal-100 selection:text-teal-900">
+      {/* ── Top Navigation Bar ────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl gradient-brand flex items-center justify-center shadow-sm"
-              aria-hidden="true"
-            >
-              <Brain className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-brand-800 text-white flex items-center justify-center font-bold text-lg shadow-xs">
+              E
             </div>
-            <span className="font-display font-bold text-gray-900 text-xl">Eduvia</span>
-            <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700">
-              Phase 0
-            </span>
+            <div>
+              <span className="font-bold text-lg tracking-tight text-slate-900 block leading-tight">Eduvia</span>
+              <span className="text-[11px] font-medium text-slate-500 block leading-none">Adaptive Learning Platform</span>
+            </div>
           </div>
-          <nav aria-label="Primary navigation">
-            <a
-              href="http://localhost:8000/docs"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                'text-sm text-gray-500 hover:text-gray-800 transition-colors',
-                'flex items-center gap-1',
-              )}
-              id="api-docs-link"
-            >
-              API Docs <ChevronRight className="w-3 h-3" aria-hidden="true" />
-            </a>
-          </nav>
+
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-600">
+              <span className={`w-2 h-2 rounded-full ${health?.status === 'ok' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+              <span>{healthLoading ? 'Checking system...' : health?.status === 'ok' ? 'Platform Operational' : 'Dev Mode Active'}</span>
+            </div>
+            <Link to="/login">
+              <Button variant="default" size="sm" className="font-semibold shadow-xs">
+                Teacher Portal
+                <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
-      {/* ── Main Content ───────────────────────────────────────────────── */}
-      <main id="main-content">
-        {/* Hero Section */}
-        <section
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16"
-          aria-labelledby="hero-heading"
-        >
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className="text-center max-w-4xl mx-auto"
-          >
-            <motion.div variants={itemVariants} className="mb-6">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-100 text-brand-700 text-sm font-medium">
-                <Sparkles className="w-4 h-4" aria-hidden="true" />
-                Adaptive Educational Platform — MVP Initialization
-              </span>
-            </motion.div>
+      {/* ── Hero Section ─────────────────────────────────────────────────── */}
+      <section className="relative pt-12 pb-16 md:pt-20 md:pb-24 overflow-hidden border-b border-slate-200/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto space-y-6">
+            <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold tracking-wide uppercase">
+              Educational Support System
+            </Badge>
 
-            <motion.h1
-              variants={itemVariants}
-              className="font-display text-5xl sm:text-6xl font-bold text-gray-900 mb-6 leading-tight"
-              id="hero-heading"
-            >
-              Standardized Curriculum,{' '}
-              <span className="gradient-text">Personalized Delivery</span>
-            </motion.h1>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.15]">
+              Standardized Curriculum.{' '}
+              <span className="text-brand-800 block sm:inline">Personalized Delivery.</span>
+            </h1>
 
-            <motion.p
-              variants={itemVariants}
-              className="text-xl text-gray-600 mb-8 leading-relaxed max-w-3xl mx-auto"
-            >
-              Eduvia helps teachers deliver the same learning objectives through different
-              teaching approaches — adapting to each learner's observed patterns without
-              permanent labels or medical diagnoses.
-            </motion.p>
+            <p className="text-lg sm:text-xl text-slate-600 leading-relaxed font-normal">
+              Eduvia supports learners with intellectual disabilities and special educational needs to reach the{' '}
+              <strong className="text-slate-900 font-semibold">same learning objectives</strong> through{' '}
+              <strong className="text-slate-900 font-semibold">diverse, adapted activity modalities</strong> based on empirical learning evidence.
+            </p>
 
-            <motion.div
-              variants={itemVariants}
-              className="flex flex-col sm:flex-row gap-3 justify-center"
-            >
-              <a
-                href="http://localhost:8000/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  'inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl',
-                  'gradient-brand text-white font-semibold shadow-lg shadow-brand-500/25',
-                  'hover:shadow-xl hover:shadow-brand-500/30 hover:-translate-y-0.5',
-                  'transition-all duration-200 focus-visible:ring-2 focus-visible:ring-brand-500',
-                )}
-                id="explore-api-btn"
-              >
-                <Zap className="w-4 h-4" aria-hidden="true" />
-                Explore API
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+              <Link to="/login" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto font-semibold">
+                  Launch Teacher Workspace
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+              <a href="#how-it-works" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto font-semibold">
+                  How The Educational Loop Works
+                </Button>
               </a>
-              <a
-                href="https://github.com"
-                className={cn(
-                  'inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl',
-                  'border border-gray-200 bg-white text-gray-700 font-semibold',
-                  'hover:bg-gray-50 hover:border-gray-300 transition-all duration-200',
-                  'focus-visible:ring-2 focus-visible:ring-brand-500',
-                )}
-                id="view-docs-btn"
-              >
-                <BookOpen className="w-4 h-4" aria-hidden="true" />
-                Documentation
-              </a>
-            </motion.div>
-          </motion.div>
-        </section>
-
-        {/* Core Loop Diagram */}
-        <section
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16"
-          aria-labelledby="loop-heading"
-        >
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="rounded-3xl bg-gradient-to-r from-brand-600 to-indigo-700 p-8 sm:p-12 text-white overflow-hidden relative"
-          >
-            <div
-              className="absolute inset-0 opacity-10"
-              aria-hidden="true"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)',
-                backgroundSize: '40px 40px',
-              }}
-            />
-            <h2
-              id="loop-heading"
-              className="font-display text-2xl sm:text-3xl font-bold mb-8 text-center"
-            >
-              The Eduvia Learning Loop
-            </h2>
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-4 relative z-10">
-              {[
-                'Curriculum',
-                'Learning Objective',
-                'Learner Profile',
-                'Strategy Selection',
-                'Activity Generation',
-                'Learner Interaction',
-                'Performance Tracking',
-                'Learning Analytics',
-                'Learner Profile Update',
-              ].map((step, i) => (
-                <div key={step} className="flex items-center gap-2">
-                  <div className="px-3 py-2 rounded-xl bg-white/15 backdrop-blur-sm text-sm font-medium text-white border border-white/20 whitespace-nowrap">
-                    {step}
-                  </div>
-                  {i < 8 && (
-                    <ChevronRight
-                      className="w-4 h-4 text-white/50 flex-shrink-0"
-                      aria-hidden="true"
-                    />
-                  )}
-                </div>
-              ))}
             </div>
-          </motion.div>
-        </section>
 
-        {/* Features Grid */}
-        <section
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16"
-          aria-labelledby="features-heading"
-        >
-          <h2
-            id="features-heading"
-            className="font-display text-3xl font-bold text-gray-900 text-center mb-12"
-          >
-            Platform Capabilities
-          </h2>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {FEATURES.map((feature) => {
-              const Icon = feature.icon
-              return (
-                <motion.div
-                  key={feature.title}
-                  variants={itemVariants}
-                  className={cn(
-                    'p-6 rounded-2xl border border-gray-100 bg-white shadow-sm',
-                    'hover:shadow-md hover:-translate-y-1 transition-all duration-200',
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'w-12 h-12 rounded-xl flex items-center justify-center mb-4',
-                      feature.bg,
-                    )}
-                    aria-hidden="true"
-                  >
-                    <Icon className={cn('w-6 h-6', feature.color)} />
+            <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 font-medium">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Zero Diagnostic Labels</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Teachers Always In Control</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>WCAG AAA Accessible</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Core Educational Principle (The Learning Loop) ───────────────── */}
+      <section id="how-it-works" className="py-16 md:py-24 bg-white border-b border-slate-200/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto text-center space-y-3 mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              The Eduvia Educational Loop
+            </h2>
+            <p className="text-slate-600 text-base leading-relaxed">
+              Standardized learning objectives remain constant; the delivery method flexes to each learner&apos;s cognitive and sensory strengths.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 lg:gap-6 relative">
+            {CORE_LOOP_STEPS.map((item, index) => (
+              <div
+                key={item.step}
+                className="relative rounded-2xl border border-slate-200/90 bg-[#fbfaf8] p-5 flex flex-col justify-between transition-all hover:border-brand-300 hover:shadow-xs"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold font-mono text-brand-800 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-200/60">
+                      STEP {item.step}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {item.highlight}
+                    </Badge>
                   </div>
-                  <h3 className="font-display font-semibold text-gray-900 mb-2">
-                    {feature.title}
+                  <h3 className="font-semibold text-base text-slate-900 tracking-tight">
+                    {item.title}
                   </h3>
-                  <p className="text-sm text-gray-500 leading-relaxed">
-                    {feature.description}
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {item.description}
                   </p>
-                </motion.div>
+                </div>
+
+                {index < CORE_LOOP_STEPS.length - 1 && (
+                  <div className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 z-10">
+                    <div className="w-6 h-6 rounded-full bg-white border border-slate-300 shadow-2xs flex items-center justify-center text-slate-400">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 5 Schema-Driven Learning Modalities ───────────────────────────── */}
+      <section className="py-16 md:py-24 bg-[#faf8f5] border-b border-slate-200/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto text-center space-y-3 mb-12 sm:mb-16">
+            <Badge variant="secondary" className="px-3 py-1 text-xs font-semibold">
+              Flexible Pedagogy
+            </Badge>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              5 Schema-Driven Activity Modalities
+            </h2>
+            <p className="text-slate-600 text-base leading-relaxed">
+              Every curriculum objective can be generated into any of these five validated formats, ensuring learners engage in their optimal processing mode.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {MODALITIES.map((mod) => {
+              const Icon = mod.icon
+              return (
+                <Card key={mod.title} className="bg-white border-slate-200 hover:border-brand-200">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-800 flex items-center justify-center">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <Badge variant="secondary">{mod.badge}</Badge>
+                    </div>
+                    <CardTitle className="text-base font-semibold">{mod.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      {mod.description}
+                    </p>
+                  </CardContent>
+                </Card>
               )
             })}
-          </motion.div>
-        </section>
 
-        {/* System Status + Development Roadmap */}
-        <section
-          className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20"
-          aria-labelledby="status-heading"
-        >
-          <h2
-            id="status-heading"
-            className="font-display text-3xl font-bold text-gray-900 text-center mb-12"
-          >
-            Development Status
-          </h2>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={containerVariants}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
-          >
-            {/* System connectivity */}
-            <div className="lg:col-span-1">
-              <SystemStatusPanel />
+            {/* IEP Summary Card */}
+            <Card className="bg-gradient-to-br from-brand-900 to-brand-950 text-white border-none sm:col-span-2 lg:col-span-1 flex flex-col justify-between">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center">
+                    <FileCheck2 className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <Badge variant="outline" className="text-white border-white/30 text-[10px]">
+                    IEP Aligned
+                  </Badge>
+                </div>
+                <CardTitle className="text-base font-semibold text-white">
+                  Individualized Education Plans
+                </CardTitle>
+                <p className="text-xs text-slate-300 leading-relaxed pt-2">
+                  Generates rigorous IEP progress reports tracking objective mastery, assistance trends, and effective accommodations with 1-click export.
+                </p>
+              </CardHeader>
+              <div className="p-6 pt-0">
+                <Link to="/login">
+                  <Button variant="accent" size="sm" className="w-full font-semibold">
+                    Explore In Teacher Portal
+                    <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Teacher Governance & Ethics ──────────────────────────────────── */}
+      <section className="py-16 md:py-20 bg-white border-b border-slate-200/70">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Teacher as Decision Maker
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Adaptive algorithms propose recommendations and generate tailored exercises, but educators always maintain veto and adjustment rights.
+              </p>
             </div>
 
-            {/* Development roadmap */}
-            <motion.div
-              variants={itemVariants}
-              className="lg:col-span-2 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
-              aria-labelledby="roadmap-heading"
-            >
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                <Database className="w-5 h-5 text-gray-500" aria-hidden="true" />
-                <h3 id="roadmap-heading" className="font-semibold text-gray-800">
-                  Development Roadmap
-                </h3>
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center">
+                <HeartHandshake className="w-5 h-5" />
               </div>
-              <div className="p-6">
-                <ol className="space-y-3" aria-label="Development phases">
-                  {PHASES.map((p) => (
-                    <li key={p.phase} className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
-                          p.status === 'current'
-                            ? 'gradient-brand text-white shadow-md'
-                            : 'bg-gray-100 text-gray-400',
-                        )}
-                        aria-label={`Phase ${p.phase}`}
-                      >
-                        {p.phase}
-                      </div>
-                      <span
-                        className={cn(
-                          'text-sm',
-                          p.status === 'current'
-                            ? 'font-semibold text-gray-900'
-                            : 'text-gray-500',
-                        )}
-                      >
-                        {p.name}
-                        {p.status === 'current' && (
-                          <span
-                            className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700"
-                            aria-label="Currently in progress"
-                          >
-                            ✓ Complete
-                          </span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </motion.div>
-          </motion.div>
-        </section>
-      </main>
+              <h3 className="text-lg font-bold text-slate-900">
+                No Diagnostic Labeling
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Eduvia is not a medical diagnostic tool. We track what concrete instructional accommodations work best — never affixing permanent clinical classifications.
+              </p>
+            </div>
 
-      {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer className="border-t border-gray-200 bg-white/70 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-brand-500" aria-hidden="true" />
-            <span className="font-display font-semibold text-gray-900">Eduvia</span>
-            <span className="text-gray-400 text-sm">Phase 0 — Initialization</span>
+            <div className="space-y-4">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center">
+                <Compass className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">
+                Accessible by Design
+              </h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Built from the ground up to support screen readers, switches, touch interfaces with 44×44px minimum targets, and reduced cognitive visual clutter.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-gray-400 text-center">
-            This system does not diagnose medical or psychological conditions.
-            Teachers remain the decision makers.
-          </p>
+        </div>
+      </section>
+
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      <footer className="py-10 bg-slate-900 text-slate-400 text-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-white text-sm">Eduvia</span>
+            <span>—</span>
+            <span>Adaptive Educational Platform for Special Needs Support</span>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <Link to="/login" className="hover:text-white transition-colors">
+              Teacher Login
+            </Link>
+            <span className="text-slate-600">|</span>
+            <span>Version 0.1.0</span>
+          </div>
         </div>
       </footer>
     </div>
