@@ -312,6 +312,85 @@ export interface GroundingSource {
   excerpt?: string
 }
 
+export interface TeacherBriefSpec {
+  objective_id: string
+  subject_id?: string | null
+  unit_id?: string | null
+  lesson_id?: string | null
+  activity_type?: ActivityType | string | null
+  difficulty_level?: number | null
+  item_count?: number
+  language?: string
+  visual_style?: string
+  scaffolding_level?: number
+  interaction_style?: string
+  teacher_instructions?: string | null
+  mode?: 'activity' | 'lesson'
+  seed?: number
+  learner_id?: string | null
+}
+
+export interface EffectiveGenerationPrompt {
+  system_prompt: string
+  user_prompt: string
+  full_prompt_text: string
+  sections: Record<string, string>
+  teacher_editable_section: string
+  immutable_sections: string[]
+  grounding_sources: GroundingSource[]
+  content_bank_grounded: boolean
+  objective_title: string
+  activity_type: string
+  difficulty_level: number
+}
+
+export interface LessonPlan {
+  id: string
+  objective_id: string
+  title: string
+  objective: string
+  duration_minutes: number
+  introduction: string
+  demonstration: string
+  guided_practice: string
+  independent_practice: string
+  scaffolding: string
+  teacher_notes: string
+  recap: string
+  suggested_activity_type: ActivityType
+  activity?: Activity | null
+  generation_source: string
+  fallback_used: boolean
+  grounding_sources?: GroundingSource[]
+}
+
+export interface LessonGenerateResponse {
+  lesson_plan: LessonPlan
+  fallback_used: boolean
+  generation_source: string
+  objective_id: string
+  grounding_sources?: GroundingSource[]
+}
+
+export interface ActivityUpdateRequest {
+  title?: string | null
+  instructions?: string | null
+  hints?: string[] | null
+  teacher_notes?: string | null
+}
+
+export interface ActivityGenerationSummary {
+  id: string
+  objective_id: string
+  activity_type: ActivityType
+  difficulty_level: number
+  title: string
+  generation_source: string
+  fallback_used: boolean
+  created_at: string
+  grounding_sources_count: number
+}
+
 export interface ActivityGenerateResponse {
   activity: Activity
   fallback_used: boolean

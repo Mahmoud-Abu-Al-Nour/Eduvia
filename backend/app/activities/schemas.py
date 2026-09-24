@@ -228,7 +228,7 @@ class Activity(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, description="Unique activity instance ID")
-    objective_id: uuid.UUID = Field(..., description="Associated learning objective ID")
+    objective_id: uuid.UUID | str = Field(..., description="Associated learning objective ID or slug")
     activity_type: ActivityType = Field(..., description="Modality of this activity")
     title: str = Field(..., min_length=1, description="Short, friendly title")
     instructions: str = Field(..., min_length=1, description="Clear, sensory-appropriate directions")
@@ -249,12 +249,15 @@ class Activity(BaseModel):
 
 
 class ActivityGenerateRequest(BaseModel):
-    """Request payload to generate an activity."""
-    objective_id: uuid.UUID = Field(..., description="Target learning objective UUID")
+    """Request payload to generate an activity (GenerationSpec)."""
+    objective_id: uuid.UUID | str = Field(..., description="Target learning objective UUID or identifier")
     learner_id: uuid.UUID | None = Field(
         default=None,
         description="Optional learner UUID to contextualize generation using profile evidence",
     )
+    subject_id: uuid.UUID | str | None = Field(default=None, description="Optional subject UUID/key")
+    unit_id: uuid.UUID | str | None = Field(default=None, description="Optional unit UUID/key")
+    lesson_id: uuid.UUID | str | None = Field(default=None, description="Optional lesson UUID/key")
     activity_type: ActivityType | None = Field(
         default=None,
         description="Optional explicit activity type override. If None, chosen from profile or objective defaults.",
@@ -263,12 +266,69 @@ class ActivityGenerateRequest(BaseModel):
         default=None,
         ge=1,
         le=5,
-        description="Optional explicit difficulty tier. If None, respects teacher overrides or objective difficulty.",
+        description="Optional explicit difficulty tier (1-5). If None, respects teacher overrides or objective difficulty.",
+    )
+    item_count: int = Field(
+        default=4,
+        ge=2,
+        le=10,
+        description="Target number of interactive items, choices, or matching pairs (2-10)",
     )
     language: str = Field(
         default="en",
         description="Language code for generation ('en', 'ar', etc.)",
     )
+    visual_style: str = Field(
+        default="calm",
+        description="Visual presentation style ('calm', 'simple', 'high_contrast', 'playful')",
+    )
+    scaffolding_level: int = Field(
+        default=1,
+        ge=0,
+        le=3,
+        description="Scaffolding tier (0=none/independent, 1=gentle hints, 2=guided support, 3=explicit modeling)",
+    )
+    interaction_style: str = Field(
+        default="direct",
+        description="Interaction modality style ('direct', 'guided', 'exploratory')",
+    )
+    teacher_instructions: str | None = Field(
+        default=None,
+        description="Custom teacher instructions for framing, real-world examples, or specific classroom constraints",
+    )
+    mode: Literal["activity", "lesson"] = Field(
+        default="activity",
+        description="Generation mode: 'activity' for single interactive task, 'lesson' for 10-minute structured mini-lesson",
+    )
+    seed: int | None = Field(
+        default=None,
+        description="Optional seed / variation index for reproducible variation during regeneration",
+    )
+    phase8_locked_difficulty: int | None = Field(
+        default=None,
+        ge=1,
+        le=5,
+        description="Authoritative adaptive engine locked difficulty that overrides teacher selection when active",
+    )
+
+
+# Alias for explicit domain clarity
+GenerationSpec = ActivityGenerateRequest
+
+
+class EffectiveGenerationPrompt(BaseModel):
+    """Structured representation of the compiled generation prompt for transparency and safety."""
+    system_prompt: str = Field(..., description="System instructions and immutable safety rules")
+    user_prompt: str = Field(..., description="User prompt incorporating curriculum, learner, and teacher parameters")
+    full_prompt_text: str = Field(..., description="Complete readable preview combining all sections")
+    sections: dict[str, str] = Field(..., description="Dictionary mapping section names to text bodies")
+    teacher_editable_section: str = Field(..., description="Isolated teacher instructions text")
+    immutable_sections: list[str] = Field(..., description="List of system-controlled immutable section titles")
+    grounding_sources: list[dict[str, Any]] = Field(default_factory=list, description="RAG retrieved knowledge passages")
+    content_bank_grounded: bool = Field(default=False, description="Whether authoritative Content Bank facts ground this prompt")
+    objective_title: str = Field(default="", description="Target objective title")
+    activity_type: str = Field(default="", description="Target activity type")
+    difficulty_level: int = Field(default=1, description="Effective difficulty level")
 
 
 class ActivityGenerateResponse(BaseModel):
@@ -281,11 +341,62 @@ class ActivityGenerateResponse(BaseModel):
         ..., description="Source of generation ('gemini', 'mock', 'deterministic_fallback')"
     )
     learner_id: uuid.UUID | None = Field(default=None)
-    objective_id: uuid.UUID
+    objective_id: uuid.UUID | str
     grounding_sources: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Verified knowledge sources retrieved via RAG for pedagogical grounding",
     )
+
+
+class LessonPlan(BaseModel):
+    """Structured, validated mini-lesson plan generated by GenAI or ContentBank fallback."""
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    objective_id: uuid.UUID | str
+    title: str = Field(..., min_length=3, description="Lesson title")
+    objective: str = Field(..., min_length=5, description="Lesson learning objective")
+    duration_minutes: int = Field(default=10, ge=5, le=45, description="Planned lesson duration in minutes")
+    introduction: str = Field(..., description="Warm-up / hook connecting to prior knowledge")
+    demonstration: str = Field(..., description="Teacher modeling / 'I Do' phase demonstrating the key concept")
+    guided_practice: str = Field(..., description="'We Do' phase with collaborative prompts and scaffolded checks")
+    independent_practice: str = Field(..., description="'You Do' phase outlining learner practice expectation")
+    scaffolding: str = Field(..., description="Tiered support, accommodations, and gentle cues")
+    teacher_notes: str = Field(..., description="Pedagogical observations and common misconceptions to watch for")
+    recap: str = Field(..., description="Closure / exit check summarizing foundational mastery")
+    suggested_activity_type: ActivityType = Field(default=ActivityType.MULTIPLE_CHOICE)
+    activity: Activity | None = Field(default=None, description="Embedded practice activity instance")
+    generation_source: str = Field(default="gemini")
+    fallback_used: bool = Field(default=False)
+    grounding_sources: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class LessonGenerateResponse(BaseModel):
+    """Response returned when a mini-lesson has been generated and validated."""
+    lesson_plan: LessonPlan
+    fallback_used: bool
+    generation_source: str
+    objective_id: uuid.UUID | str
+    grounding_sources: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ActivityUpdateRequest(BaseModel):
+    """Payload for safe teacher edits to an existing activity."""
+    title: str | None = Field(default=None, min_length=2, description="Updated activity title")
+    instructions: str | None = Field(default=None, min_length=3, description="Updated instructions wording")
+    hints: list[str] | None = Field(default=None, description="Updated graded hints")
+    teacher_notes: str | None = Field(default=None, description="Teacher notes or observations")
+
+
+class ActivityGenerationSummary(BaseModel):
+    """Summary item for session activity library."""
+    id: uuid.UUID
+    objective_id: uuid.UUID | str
+    activity_type: ActivityType
+    difficulty_level: int
+    title: str
+    generation_source: str
+    fallback_used: bool
+    created_at: str
+    grounding_sources_count: int = 0
 
 
 # ── Phase 5: Learner Submission Payloads ──────────────────────────────────────
@@ -357,7 +468,7 @@ ActivitySubmissionPayload = Annotated[
 class ActivitySubmissionRequest(BaseModel):
     """Request sent when a learner submits an answer for evaluation."""
     activity_id: uuid.UUID = Field(..., description="ID of the activity being answered")
-    objective_id: uuid.UUID = Field(..., description="ID of the associated learning objective")
+    objective_id: uuid.UUID | str = Field(..., description="ID of the associated learning objective")
     activity_type: ActivityType = Field(..., description="Modality of the activity")
     submission: ActivitySubmissionPayload = Field(
         ..., description="Modality-specific answer payload provided by learner"
@@ -409,7 +520,7 @@ class ActivityInteractionState(BaseModel):
     """Represents the in-progress or completed interaction state of an activity."""
     session_id: uuid.UUID = Field(default_factory=uuid.uuid4)
     activity_id: uuid.UUID
-    objective_id: uuid.UUID
+    objective_id: uuid.UUID | str
     activity_type: ActivityType
     learner_id: uuid.UUID | None = None
     started_at: str = Field(..., description="ISO 8601 start timestamp")

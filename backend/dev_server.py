@@ -22,17 +22,27 @@ CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 if CURRENT_DIR not in sys.path:
     sys.path.insert(0, CURRENT_DIR)
 
-from app.activities.fallbacks import create_fallback_activity
+from app.activities.fallbacks import create_fallback_activity, create_fallback_lesson
 from app.activities.router import get_activity_service
 from app.activities.schemas import (
     Activity,
     ActivityEvaluationResponse,
     ActivityGenerateRequest,
     ActivityGenerateResponse,
+    ActivityGenerationSummary,
     ActivitySubmissionRequest,
     ActivityType,
+    ActivityUpdateRequest,
+    EffectiveGenerationPrompt,
+    LessonGenerateResponse,
+    LessonPlan,
 )
 from app.activities.service import ActivityService
+from app.ai.generation.prompts import (
+    compile_generation_prompt,
+    compile_lesson_prompt,
+)
+from app.ai.providers.base import Message, MessageRole
 from app.analytics.models import ActivityAttempt, PerformanceEvent
 from app.auth.security import get_password_hash
 from app.curriculum.router import get_curriculum_service
@@ -473,6 +483,109 @@ class MockActivityService:
     def __init__(self) -> None:
         self.service = ActivityService(session=AsyncMock())
         self.activities: dict[uuid.UUID, Activity] = {}
+        self.history: dict[uuid.UUID, ActivityGenerationSummary] = {}
+
+    def _resolve_objective(self, oid: uuid.UUID | str) -> tuple[str, str, int, dict[str, Any]]:
+        """Extract title, description, difficulty, criteria from curriculum catalog or known slugs."""
+        obj = None
+        if isinstance(oid, uuid.UUID):
+            obj = _OBJECTIVES_MAP.get(oid)
+        else:
+            try:
+                parsed_uuid = uuid.UUID(str(oid))
+                obj = _OBJECTIVES_MAP.get(parsed_uuid)
+            except (ValueError, TypeError):
+                pass
+
+        title = "Foundational Practice"
+        desc = "Curriculum-aligned practice activity."
+        diff = 1
+        criteria = {}
+
+        if obj:
+            title_dict = obj.get("title")
+            if isinstance(title_dict, dict):
+                title = str(title_dict.get("en", "Demo Objective"))
+            elif isinstance(title_dict, str):
+                title = title_dict
+            desc_dict = obj.get("description")
+            if isinstance(desc_dict, dict):
+                desc = str(desc_dict.get("en", "Practice activity"))
+            elif isinstance(desc_dict, str):
+                desc = desc_dict
+            diff = int(obj.get("difficulty_level", 1))
+            criteria = obj.get("assessment_criteria") or {}
+        else:
+            str_oid = str(oid)
+            _KNOWN_SLUGS = {
+                "math-num-01": ("Count objects from 0–10", "Count concrete everyday objects from 0 to 10 with 1-to-1 correspondence", 1),
+                "math-num-02": ("Compare quantities (more, less, equal)", "Compare sets of visual objects to determine more, less, or equal", 2),
+                "math-num-03": ("Addition within 10 using concrete objects", "Combine sets of objects to find sums within 10", 2),
+                "math-num-04": ("Subtraction within 10 using visual models", "Remove objects from sets to find differences within 10", 3),
+                "math-num-05": ("Order numbers from 0 to 20", "Arrange numbers in sequential ascending and descending order", 2),
+                "lit-let-01": ("Identify uppercase and lowercase letters", "Recognize and match uppercase and lowercase letter pairs", 1),
+                "lit-pho-01": ("Match beginning sounds to letters", "Identify initial phonemes and link them to letter symbols", 2),
+                "lit-wor-01": ("Read basic CVC words with visual support", "Decode consonant-vowel-consonant words with picture prompts", 2),
+                "daily-rou-01": ("Sequence daily morning routine tasks", "Order chronological steps in daily morning activities", 1),
+                "sensory-col-01": ("Discriminate primary colors and geometric shapes", "Identify and categorize items by basic color and shape attributes", 1),
+            }
+            if str_oid in _KNOWN_SLUGS:
+                title, desc, diff = _KNOWN_SLUGS[str_oid]
+
+        return title, desc, diff, criteria
+
+    async def preview_prompt(
+        self,
+        request: ActivityGenerateRequest,
+    ) -> EffectiveGenerationPrompt:
+        oid = request.objective_id
+        title, desc, diff, criteria = self._resolve_objective(oid)
+        if request.difficulty_level is not None:
+            diff = request.difficulty_level
+        act_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
+
+        grounding_chunks = []
+        try:
+            from app.knowledge.retrieval import get_knowledge_retrieval_service
+            retrieval_service = get_knowledge_retrieval_service()
+            grounding_chunks = await retrieval_service.retrieve_pedagogical_context(
+                query=f"{title} {desc}".strip(),
+                top_k=3,
+            )
+        except Exception:
+            pass
+
+        authoritative_content_payload = None
+        try:
+            from app.content.bank import get_content_bank
+            bank = get_content_bank()
+            content_item = bank.get_by_objective(oid, act_type, diff)
+            if content_item:
+                authoritative_content_payload = {
+                    "prompt": content_item.get_prompt(request.language),
+                    "correct_answer": content_item.correct_answer,
+                    "content_payload": content_item.content_payload,
+                }
+        except Exception:
+            pass
+
+        if request.mode == "lesson":
+            return compile_lesson_prompt(
+                spec=request,
+                objective_title=title,
+                objective_description=desc,
+                grounding_chunks=grounding_chunks,
+                authoritative_content=authoritative_content_payload,
+            )
+
+        return compile_generation_prompt(
+            spec=request,
+            objective_title=title,
+            objective_description=desc,
+            assessment_criteria=criteria,
+            grounding_chunks=grounding_chunks,
+            authoritative_content=authoritative_content_payload,
+        )
 
     async def generate_activity(
         self,
@@ -480,30 +593,120 @@ class MockActivityService:
         current_user: User | None = None,
     ) -> ActivityGenerateResponse:
         oid = request.objective_id
-        obj: dict[str, Any] | None = None
-        if oid == obj1_id:
-            obj = obj1_dict
-        elif oid == obj2_id:
-            obj = obj2_dict
-
-        title = "Numeracy Practice"
-        desc = "Foundational practice."
-        diff = 1
-
-        if obj:
-            title_dict = obj.get("title")
-            if isinstance(title_dict, dict):
-                title = str(title_dict.get("en", "Demo Objective"))
-            desc_dict = obj.get("description")
-            if isinstance(desc_dict, dict):
-                desc = str(desc_dict.get("en", "Practice counting"))
-            diff = int(obj.get("difficulty_level", 1))
+        title, desc, diff, criteria = self._resolve_objective(oid)
 
         if request.difficulty_level is not None:
             diff = request.difficulty_level
+        diff = max(1, min(5, diff))
 
         act_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
 
+        # ── Attempt REAL Gemini generation pipeline ──
+        from app.ai.orchestrator.orchestrator import get_ai_orchestrator
+        orchestrator = get_ai_orchestrator()
+
+        if orchestrator.is_available:
+            try:
+                grounding_sources: list[dict[str, Any]] = []
+                grounding_chunks: list[Any] = []
+
+                # 1. RAG retrieval (best-effort)
+                try:
+                    from app.knowledge.retrieval import get_knowledge_retrieval_service
+                    retrieval_service = get_knowledge_retrieval_service()
+                    grounding_chunks = await retrieval_service.retrieve_pedagogical_context(
+                        query=f"{title} {desc}".strip(),
+                        top_k=3,
+                    )
+                    for c in grounding_chunks:
+                        grounding_sources.append({
+                            "chunk_id": c.chunk_id,
+                            "title": c.document_title,
+                            "source": c.source,
+                            "category": c.category,
+                            "score": c.score,
+                            "excerpt": c.content[:200],
+                        })
+                except Exception:
+                    pass
+
+                # 2. Content Bank grounding (best-effort)
+                authoritative_content_payload = None
+                try:
+                    from app.content.bank import get_content_bank
+                    bank = get_content_bank()
+                    content_item = bank.get_by_objective(oid, act_type, diff)
+                    if content_item:
+                        authoritative_content_payload = {
+                            "prompt": content_item.get_prompt(request.language),
+                            "correct_answer": content_item.correct_answer,
+                            "content_payload": content_item.content_payload,
+                        }
+                except Exception:
+                    pass
+
+                # 3. Prompt compiler
+                compiled = compile_generation_prompt(
+                    spec=request,
+                    objective_title=title,
+                    objective_description=desc,
+                    assessment_criteria=criteria,
+                    grounding_chunks=grounding_chunks,
+                    authoritative_content=authoritative_content_payload,
+                )
+                messages = [
+                    Message(role=MessageRole.SYSTEM, content=compiled.system_prompt),
+                    Message(role=MessageRole.USER, content=compiled.user_prompt),
+                ]
+
+                # 4. Gemini structured generation
+                from app.activities.schemas import Activity as ActivitySchema
+                output_schema = ActivitySchema.model_json_schema()
+                raw_response = await orchestrator.generate_structured(
+                    messages=messages,
+                    output_schema=output_schema,
+                )
+
+                # 5. Patch required IDs
+                if not raw_response.get("id"):
+                    raw_response["id"] = str(uuid.uuid4())
+                raw_response["objective_id"] = str(oid)
+                raw_response["activity_type"] = act_type.value
+                raw_response["difficulty_level"] = diff
+                if isinstance(raw_response.get("content"), dict):
+                    raw_response["content"]["activity_type"] = act_type.value
+
+                # 6. Pydantic validation
+                activity = Activity.model_validate(raw_response)
+                self.activities[activity.id] = activity
+
+                summary = ActivityGenerationSummary(
+                    id=activity.id,
+                    objective_id=oid,
+                    activity_type=activity.activity_type,
+                    difficulty_level=activity.difficulty_level,
+                    title=activity.title,
+                    generation_source=orchestrator.provider.provider_name,
+                    fallback_used=False,
+                    created_at=datetime.now(UTC).isoformat(),
+                    grounding_sources_count=len(grounding_sources),
+                )
+                self.history[activity.id] = summary
+
+                return ActivityGenerateResponse(
+                    activity=activity,
+                    fallback_used=False,
+                    generation_source=orchestrator.provider.provider_name,
+                    learner_id=request.learner_id,
+                    objective_id=oid,
+                    grounding_sources=grounding_sources,
+                )
+            except Exception as gen_err:
+                import traceback
+                traceback.print_exc()
+                # Fall through to deterministic fallback
+
+        # ── Deterministic Fallback ──
         activity = create_fallback_activity(
             objective_id=oid,
             objective_title=title,
@@ -511,29 +714,193 @@ class MockActivityService:
             difficulty_level=diff,
             activity_type=act_type,
             language=request.language,
+            item_count=request.item_count,
+            seed=request.seed or 0,
         )
         self.activities[activity.id] = activity
+
+        summary = ActivityGenerationSummary(
+            id=activity.id,
+            objective_id=oid,
+            activity_type=activity.activity_type,
+            difficulty_level=activity.difficulty_level,
+            title=activity.title,
+            generation_source="deterministic_fallback",
+            fallback_used=True,
+            created_at=datetime.now(UTC).isoformat(),
+            grounding_sources_count=0,
+        )
+        self.history[activity.id] = summary
 
         return ActivityGenerateResponse(
             activity=activity,
             fallback_used=True,
-            generation_source="dev_mock_engine",
+            generation_source="deterministic_fallback",
             learner_id=request.learner_id,
             objective_id=oid,
-            grounding_sources=[
-                {
-                    "chunk_id": "mock-rag-01",
-                    "title": "Teaching Strategies for SEN",
-                    "source": "teaching_strategies.md",
-                    "category": "strategy",
-                    "score": 0.88,
-                    "excerpt": "Break tasks into small, manageable sequential steps with immediate reinforcement.",
-                }
-            ],
+            grounding_sources=[],
         )
 
+    async def generate_lesson(
+        self,
+        request: ActivityGenerateRequest,
+        current_user: User | None = None,
+    ) -> LessonGenerateResponse:
+        oid = request.objective_id
+        title, desc, diff, criteria = self._resolve_objective(oid)
+        act_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
+
+        grounding_sources: list[dict[str, Any]] = []
+        grounding_chunks = []
+        try:
+            from app.knowledge.retrieval import get_knowledge_retrieval_service
+            retrieval_service = get_knowledge_retrieval_service()
+            grounding_chunks = await retrieval_service.retrieve_pedagogical_context(
+                query=f"{title} {desc}".strip(),
+                top_k=3,
+            )
+            for c in grounding_chunks:
+                grounding_sources.append({
+                    "chunk_id": c.chunk_id,
+                    "title": c.document_title,
+                    "source": c.source,
+                    "category": c.category,
+                    "score": c.score,
+                    "excerpt": c.content[:200],
+                })
+        except Exception:
+            pass
+
+        authoritative_content_payload = None
+        try:
+            from app.content.bank import get_content_bank
+            bank = get_content_bank()
+            content_item = bank.get_by_objective(oid, act_type, diff)
+            if content_item:
+                authoritative_content_payload = {
+                    "prompt": content_item.get_prompt(request.language),
+                    "correct_answer": content_item.correct_answer,
+                    "content_payload": content_item.content_payload,
+                }
+        except Exception:
+            pass
+
+        compiled = compile_lesson_prompt(
+            spec=request,
+            objective_title=title,
+            objective_description=desc,
+            grounding_chunks=grounding_chunks,
+            authoritative_content=authoritative_content_payload,
+        )
+
+        from app.ai.orchestrator.orchestrator import get_ai_orchestrator
+        orchestrator = get_ai_orchestrator()
+
+        if orchestrator.is_available:
+            try:
+                messages = [
+                    Message(role=MessageRole.SYSTEM, content=compiled.system_prompt),
+                    Message(role=MessageRole.USER, content=compiled.user_prompt),
+                ]
+                output_schema = LessonPlan.model_json_schema()
+                raw_resp = await orchestrator.generate_structured(
+                    messages=messages,
+                    output_schema=output_schema,
+                )
+                if not raw_resp.get("id"):
+                    raw_resp["id"] = str(uuid.uuid4())
+                raw_resp["objective_id"] = str(oid)
+                raw_resp["generation_source"] = orchestrator.provider.provider_name
+                raw_resp["fallback_used"] = False
+                raw_resp["grounding_sources"] = grounding_sources
+
+                # Embed practice activity
+                embedded_act = create_fallback_activity(
+                    objective_id=oid,
+                    objective_title=title,
+                    objective_description=desc,
+                    difficulty_level=diff,
+                    activity_type=act_type,
+                    language=request.language,
+                    seed=request.seed or 0,
+                )
+                self.activities[embedded_act.id] = embedded_act
+                raw_resp["activity"] = embedded_act.model_dump()
+
+                lesson_plan = LessonPlan.model_validate(raw_resp)
+                return LessonGenerateResponse(
+                    lesson_plan=lesson_plan,
+                    fallback_used=False,
+                    generation_source=orchestrator.provider.provider_name,
+                    objective_id=oid,
+                    grounding_sources=grounding_sources,
+                )
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+
+        fallback_lesson = create_fallback_lesson(
+            objective_id=oid,
+            objective_title=title,
+            objective_description=desc,
+            difficulty_level=diff,
+            language=request.language,
+            suggested_activity_type=act_type,
+            seed=request.seed or 0,
+        )
+        if fallback_lesson.activity:
+            self.activities[fallback_lesson.activity.id] = fallback_lesson.activity
+        return LessonGenerateResponse(
+            lesson_plan=fallback_lesson,
+            fallback_used=True,
+            generation_source="deterministic_fallback",
+            objective_id=oid,
+            grounding_sources=[],
+        )
+
+    async def update_activity(
+        self,
+        activity_id: uuid.UUID,
+        update: ActivityUpdateRequest,
+    ) -> Activity:
+        activity = await self.get_activity(activity_id)
+        if not activity:
+            raise NotFoundError(f"Activity with id '{activity_id}' not found.")
+        raw = activity.model_dump()
+        if update.title is not None:
+            raw["title"] = update.title
+        if update.instructions is not None:
+            raw["instructions"] = update.instructions
+        if update.hints is not None:
+            raw["hints"] = update.hints
+        if update.teacher_notes is not None:
+            if not raw.get("metadata"):
+                raw["metadata"] = {}
+            raw["metadata"]["teacher_notes"] = update.teacher_notes
+
+        validated = Activity.model_validate(raw)
+        self.activities[validated.id] = validated
+        return validated
+
+    async def get_history(self) -> list[ActivityGenerationSummary]:
+        return list(self.history.values())[-20:]
+
     async def get_activity(self, activity_id: uuid.UUID) -> Activity | None:
-        return self.activities.get(activity_id)
+        if activity_id in self.activities:
+            return self.activities[activity_id]
+
+        from app.content.bank import get_content_bank
+        bank = get_content_bank()
+        item = bank.get_by_id(activity_id)
+        if item is not None:
+            created = bank.create_activity_from_content(
+                item,
+                target_modality=item.supported_modalities[0],
+                activity_id=activity_id,
+            )
+            self.activities[activity_id] = created
+            return created
+        return None
 
     async def evaluate_submission(
         self,
@@ -901,6 +1268,8 @@ class MockRecommendationService:
         profile = learner.profile if learner else demo_profile
 
         # Build candidate objectives from mock curriculum fixtures
+        obj1_dict = _OBJECTIVES_MAP.get(obj1_id, {"title": {"en": "Demo Objective 1"}, "difficulty_level": 1})
+        obj2_dict = _OBJECTIVES_MAP.get(obj2_id, {"title": {"en": "Demo Objective 2"}, "difficulty_level": 2})
         mock_obj1 = LearningObjective(
             id=obj1_id,
             lesson_id=less_id,
@@ -1292,10 +1661,14 @@ from app.teachers.schemas import (
     TeacherDashboardOverview,
 )
 
+_MOCK_CURRICULUM_INSTANCE = MockCurriculumService()
+_MOCK_LEARNER_INSTANCE = MockLearnerService()
+_MOCK_ACTIVITY_INSTANCE = MockActivityService()
+
 app.dependency_overrides[get_db_session] = override_get_db_session
-app.dependency_overrides[get_curriculum_service] = lambda: MockCurriculumService()
-app.dependency_overrides[get_learner_service] = lambda: MockLearnerService()
-app.dependency_overrides[get_activity_service] = lambda: MockActivityService()
+app.dependency_overrides[get_curriculum_service] = lambda: _MOCK_CURRICULUM_INSTANCE
+app.dependency_overrides[get_learner_service] = lambda: _MOCK_LEARNER_INSTANCE
+app.dependency_overrides[get_activity_service] = lambda: _MOCK_ACTIVITY_INSTANCE
 app.dependency_overrides[get_analytics_service] = lambda: _MOCK_ANALYTICS_INSTANCE
 app.dependency_overrides[get_recommendation_service] = lambda: _MOCK_RECOMMENDATION_INSTANCE
 app.dependency_overrides[get_teacher_dashboard_service] = lambda: _MOCK_TEACHER_DASHBOARD_INSTANCE

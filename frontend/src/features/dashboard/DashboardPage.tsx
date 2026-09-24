@@ -14,7 +14,7 @@ import {
   ChevronRight,
   ShieldCheck,
 } from "lucide-react";
-import { CurriculumBrowser } from "@/features/curriculum/CurriculumBrowser";
+import { CurriculumBrowser, TeacherActivityGenerator } from "@/features/curriculum";
 import { LearnerManager } from "@/features/learners/LearnerManager";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 import { RecommendationCard } from "@/features/recommendations";
@@ -41,10 +41,24 @@ const TABS = [
   { id: "recommendations", label: "Adaptive Engine", icon: Compass, description: "Teacher-guided sequencing recommendations" },
 ];
 
+const CURRICULUM_OBJECTIVES = [
+  { id: "math-num-01", title: "Count objects from 0–10", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Counting & Cardinality" },
+  { id: "math-num-02", title: "Compare quantities (more, less, equal)", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Comparing Sets" },
+  { id: "math-num-03", title: "Addition within 10 using concrete objects", subject: "Mathematics", unit: "Operations & Algebraic Thinking", lesson: "Basic Addition" },
+  { id: "math-num-04", title: "Subtraction within 10 using visual models", subject: "Mathematics", unit: "Operations & Algebraic Thinking", lesson: "Basic Subtraction" },
+  { id: "math-num-05", title: "Order numbers from 0 to 20", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Sequencing" },
+  { id: "lit-let-01", title: "Identify uppercase and lowercase letters", subject: "Language Arts", unit: "Phonological Awareness", lesson: "Alphabet Recognition" },
+  { id: "lit-pho-01", title: "Match beginning sounds to letters", subject: "Language Arts", unit: "Phonics", lesson: "Initial Phonemes" },
+  { id: "lit-wor-01", title: "Read basic CVC words with visual support", subject: "Language Arts", unit: "Reading", lesson: "Word Families" },
+  { id: "daily-rou-01", title: "Sequence daily morning routine tasks", subject: "Daily Living Skills", unit: "Executive Functioning", lesson: "Routines" },
+  { id: "sensory-col-01", title: "Discriminate primary colors and geometric shapes", subject: "Sensory Development", unit: "Visual Perception", lesson: "Color & Shape" },
+];
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "overview" }) => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>("math-num-01");
 
   // IEP Modal state
   const [iepLearner, setIepLearner] = useState<{ id: string; name: string } | null>(null);
@@ -273,6 +287,47 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
 
           {activeTab === "activities" && (
             <div className="space-y-6 max-w-5xl">
+              {/* Objective Selector Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center font-bold text-xs">
+                    OBJ
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Select Curriculum Objective to Generate Practice</h3>
+                    <p className="text-xs text-slate-500">Pick any standardized objective or switch to Curriculum tab to browse full hierarchy.</p>
+                  </div>
+                </div>
+
+                <select
+                  value={selectedObjectiveId}
+                  onChange={(e) => setSelectedObjectiveId(e.target.value)}
+                  className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:bg-white focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                >
+                  {CURRICULUM_OBJECTIVES.map((obj) => (
+                    <option key={obj.id} value={obj.id}>
+                      [{obj.subject}] {obj.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Dynamic Teacher Activity Generator */}
+              {(() => {
+                const curObj = CURRICULUM_OBJECTIVES.find((o) => o.id === selectedObjectiveId) || CURRICULUM_OBJECTIVES[0];
+                return (
+                  <TeacherActivityGenerator
+                    key={selectedObjectiveId}
+                    objectiveId={curObj.id}
+                    objectiveTitle={curObj.title}
+                    subjectTitle={curObj.subject}
+                    unitTitle={curObj.unit}
+                    lessonTitle={curObj.lesson}
+                    standalone={true}
+                  />
+                );
+              })()}
+
               <Card className="border-brand-200/80 bg-gradient-to-r from-brand-50/60 to-white shadow-xs">
                 <CardHeader className="pb-3">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

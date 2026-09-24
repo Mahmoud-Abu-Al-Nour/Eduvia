@@ -16,8 +16,12 @@ from app.activities.schemas import (
     ActivityEvaluationResponse,
     ActivityGenerateRequest,
     ActivityGenerateResponse,
+    ActivityGenerationSummary,
     ActivitySubmissionRequest,
     ActivityType,
+    ActivityUpdateRequest,
+    EffectiveGenerationPrompt,
+    LessonGenerateResponse,
 )
 from app.activities.service import ActivityService
 from app.auth.dependencies import get_current_user
@@ -43,6 +47,20 @@ def get_activity_service(
 
 
 @router.post(
+    "/preview-prompt",
+    response_model=EffectiveGenerationPrompt,
+    status_code=status.HTTP_200_OK,
+    summary="Preview effective compiled prompt",
+    description="Compiles and returns the exact prompt that will be sent to the AI provider, without exposing internal secrets.",
+)
+async def preview_prompt(
+    request: ActivityGenerateRequest,
+    service: ActivityService = Depends(get_activity_service),
+) -> EffectiveGenerationPrompt:
+    return await service.preview_prompt(request=request)
+
+
+@router.post(
     "/generate",
     response_model=ActivityGenerateResponse,
     status_code=status.HTTP_200_OK,
@@ -64,6 +82,33 @@ async def generate_activity(
     key = f"generate:user:{current_user.id}" if current_user and current_user.id else f"generate:ip:{get_client_ip(http_request)}"
     activity_generate_rate_limiter.check(key)
     return await service.generate_activity(request=request, current_user=current_user)
+
+
+@router.post(
+    "/generate-lesson",
+    response_model=LessonGenerateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate a structured 10-minute mini-lesson",
+    description="Generates a structured mini-lesson plan conforming to the Gradual Release of Responsibility model.",
+)
+async def generate_lesson(
+    request: ActivityGenerateRequest,
+    current_user: User = Depends(get_current_user),
+    service: ActivityService = Depends(get_activity_service),
+) -> LessonGenerateResponse:
+    return await service.generate_lesson(request=request, current_user=current_user)
+
+
+@router.get(
+    "/history",
+    response_model=list[ActivityGenerationSummary],
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve recent activity generation history for the session",
+)
+async def get_generation_history(
+    service: ActivityService = Depends(get_activity_service),
+) -> list[ActivityGenerationSummary]:
+    return await service.get_history()
 
 
 @router.get(
@@ -160,5 +205,27 @@ async def get_activity(
             detail=f"Activity with id '{activity_id}' not found.",
         )
     return activity
+
+
+@router.patch(
+    "/{activity_id}",
+    response_model=Activity,
+    status_code=status.HTTP_200_OK,
+    summary="Update activity content safely",
+    description="Allows teachers to update title, instructions, hints, or notes, re-running strict schema validation.",
+)
+async def update_activity(
+    activity_id: uuid.UUID,
+    update_req: ActivityUpdateRequest,
+    service: ActivityService = Depends(get_activity_service),
+) -> Activity:
+    try:
+        return await service.update_activity(activity_id=activity_id, update=update_req)
+    except NotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=exc.message,
+        )
+
 
 

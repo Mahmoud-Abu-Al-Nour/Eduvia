@@ -1,3 +1,4 @@
+from typing import Union
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -110,7 +111,7 @@ class LearningObjectiveUpdate(LearningObjectiveBase):
 class LearningObjectiveResponse(LearningObjectiveBase):
     id: UUID
     lesson_id: UUID
-    prerequisites: list["LearningObjectiveResponse"] = []
+    prerequisites: list[Union["LearningObjectiveResponse", UUID, str]] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -127,3 +128,10 @@ class SubjectWithUnits(SubjectResponse):
 
 class CurriculumWithSubjects(CurriculumResponse):
     subjects: list[SubjectWithUnits] = []
+
+
+LearningObjectiveResponse.model_rebuild()
+LessonWithObjectives.model_rebuild()
+UnitWithLessons.model_rebuild()
+SubjectWithUnits.model_rebuild()
+CurriculumWithSubjects.model_rebuild()

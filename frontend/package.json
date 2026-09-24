@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build",
     "type-check": "tsc --noEmit",
     "lint": "oxlint src/",
-    "test": "node --test tests/accessibility.test.mjs tests/learners.test.mjs tests/tokenStorage.test.mjs tests/modalities.test.mjs tests/integration_contracts.test.mjs",
+    "test": "node --test tests/accessibility.test.mjs tests/learners.test.mjs tests/tokenStorage.test.mjs tests/modalities.test.mjs tests/integration_contracts.test.mjs tests/api_routing.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

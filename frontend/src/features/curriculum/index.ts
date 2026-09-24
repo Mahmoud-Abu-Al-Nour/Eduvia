@@ -1,2 +1,2 @@
-// Eduvia - curriculum feature
-export {};
+export * from "./CurriculumBrowser";
+export * from "./TeacherActivityGenerator";

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from "@/services/api";
-import { BookOpen, ChevronRight, Layers, Award, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { TeacherActivityGenerator } from "./TeacherActivityGenerator";
+import { BookOpen, ChevronRight, Layers, Award, ArrowLeft, CheckCircle2, Sparkles } from "lucide-react";
 
 interface LocalizedText {
   en?: string;
@@ -67,15 +68,21 @@ export const CurriculumBrowser: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
+
+  // ── AI Generation State ──
+  const [genBriefOpenFor, setGenBriefOpenFor] = useState<string | null>(null);
 
   const fetchCurricula = async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(undefined);
     try {
       const data = await api.get<Curriculum[]>("/curricula");
       setCurricula(data);
     } catch (err: any) {
-      setError(err.message || "Failed to load curricula");
+      setErrorStatus(err?.status);
+      setError(err?.message || "Failed to load curricula");
     } finally {
       setLoading(false);
     }
@@ -88,6 +95,7 @@ export const CurriculumBrowser: React.FC = () => {
   const handleSelectCurriculum = async (curr: Curriculum) => {
     setLoadingDetails(true);
     setError(null);
+    setErrorStatus(undefined);
     try {
       const fullCurr = await api.get<Curriculum>(`/curricula/${curr.id}`);
       setSelectedCurriculum(fullCurr);
@@ -95,7 +103,8 @@ export const CurriculumBrowser: React.FC = () => {
       setSelectedUnit(null);
       setSelectedLesson(null);
     } catch (err: any) {
-      setError(err.message || "Failed to load curriculum hierarchy");
+      setErrorStatus(err?.status);
+      setError(err?.message || "Failed to load curriculum hierarchy");
     } finally {
       setLoadingDetails(false);
     }
@@ -124,13 +133,26 @@ export const CurriculumBrowser: React.FC = () => {
   }
 
   if (error) {
+    let errorHeading = 'Error Loading Data'
+    if (errorStatus === 404) {
+      errorHeading = 'Curriculum Not Found'
+    } else if (errorStatus === 401) {
+      errorHeading = 'Session Expired'
+    } else if (errorStatus === 403) {
+      errorHeading = 'Access Denied'
+    } else if (errorStatus && errorStatus >= 500) {
+      errorHeading = 'Server Error'
+    } else if (errorStatus === undefined) {
+      errorHeading = 'Connection Error'
+    }
+
     return (
-      <div className="p-6 bg-red-50 rounded-xl border border-red-200 text-red-700" role="alert">
-        <p className="font-semibold mb-2">Error loading data</p>
+      <div className="p-6 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200" role="alert">
+        <p className="font-semibold mb-2">{errorHeading}</p>
         <p className="text-sm">{error}</p>
         <button
           onClick={fetchCurricula}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+          className="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
         >
           Try Again
         </button>
@@ -563,6 +585,31 @@ export const CurriculumBrowser: React.FC = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* ── AI Activity & Lesson Generation ── */}
+                  <div className="pt-3 border-t border-gray-100">
+                    {genBriefOpenFor !== obj.id ? (
+                      <button
+                        onClick={() => setGenBriefOpenFor(obj.id)}
+                        className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow-sm hover:from-violet-700 hover:to-indigo-700 transition-all focus:ring-2 focus:ring-violet-500"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Configure AI Generation Brief
+                      </button>
+                    ) : (
+                      <div className="mt-3">
+                        <TeacherActivityGenerator
+                          objectiveId={obj.id}
+                          objectiveTitle={getText(obj.title)}
+                          subjectTitle={selectedSubject ? getText(selectedSubject.title) : undefined}
+                          unitTitle={selectedUnit ? getText(selectedUnit.title) : undefined}
+                          lessonTitle={selectedLesson ? getText(selectedLesson.title) : undefined}
+                          defaultDifficulty={obj.difficulty_level || 2}
+                          onClose={() => setGenBriefOpenFor(null)}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

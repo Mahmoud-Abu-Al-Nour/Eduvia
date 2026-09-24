@@ -19,10 +19,7 @@ import tokenStorage from './tokenStorage'
 // ── Axios Instance ────────────────────────────────────────────────────────
 
 const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL
-// Use Vite reverse-proxy path (/api/v1) when in dev mode or fallback to IPv4 loopback
-const API_BASE_URL = RAW_BASE_URL === '' || RAW_BASE_URL === undefined
-  ? ''
-  : RAW_BASE_URL.replace('localhost', '127.0.0.1')
+const API_BASE_URL = RAW_BASE_URL !== undefined ? RAW_BASE_URL : 'http://localhost:8000'
 const API_V1_PREFIX = '/api/v1'
 
 const apiClient: AxiosInstance = axios.create({
@@ -85,9 +82,11 @@ apiClient.interceptors.response.use(
     const normalizedError = new Error(message) as Error & {
       code?: string
       status?: number
+      response?: AxiosResponse
     }
     normalizedError.code = error.response?.data?.error || (status ? `HTTP_${status}` : 'NETWORK_ERROR')
     normalizedError.status = status
+    normalizedError.response = error.response
 
     return Promise.reject(normalizedError)
   },
@@ -169,21 +168,25 @@ export const healthApi = {
 // ── Activities API (Phase 4 & 5) ──────────────────────────────────────────
 
 export const activitiesApi = {
+  /** Preview compiled effective prompt safely */
+  previewPrompt: (data: import('@/types').TeacherBriefSpec) =>
+    post<import('@/types').EffectiveGenerationPrompt>('/activities/preview-prompt', data),
+
   /** Generate a structured learning activity */
-  generate: (data: {
-    objective_id: string
-    learner_id?: string | null
-    activity_type?: string | null
-    difficulty_level?: number | null
-    language?: string
-  }) =>
-    post<{
-      activity: import('@/types').Activity
-      fallback_used: boolean
-      generation_source: string
-      learner_id?: string | null
-      objective_id: string
-    }>('/activities/generate', data),
+  generate: (data: import('@/types').TeacherBriefSpec) =>
+    post<import('@/types').ActivityGenerateResponse>('/activities/generate', data),
+
+  /** Generate a structured 10-minute mini-lesson */
+  generateLesson: (data: import('@/types').TeacherBriefSpec) =>
+    post<import('@/types').LessonGenerateResponse>('/activities/generate-lesson', data),
+
+  /** Update an existing activity safely */
+  update: (activityId: string, data: import('@/types').ActivityUpdateRequest) =>
+    patch<import('@/types').Activity>(`/activities/${activityId}`, data),
+
+  /** Get session generation history */
+  getHistory: () =>
+    get<import('@/types').ActivityGenerationSummary[]>('/activities/history'),
 
   /** Retrieve an activity by ID */
   getById: (activityId: string) =>

@@ -16,17 +16,22 @@ import structlog
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.activities.fallbacks import create_fallback_activity
+from app.activities.fallbacks import create_fallback_activity, create_fallback_lesson
 from app.activities.schemas import (
     Activity,
     ActivityContent,
     ActivityEvaluationResponse,
     ActivityGenerateRequest,
     ActivityGenerateResponse,
+    ActivityGenerationSummary,
     ActivitySubmissionRequest,
     ActivityType,
+    ActivityUpdateRequest,
     DragDropContent,
     DragDropSubmission,
+    EffectiveGenerationPrompt,
+    LessonGenerateResponse,
+    LessonPlan,
     MatchingContent,
     MatchingSubmission,
     MultipleChoiceContent,
@@ -36,8 +41,13 @@ from app.activities.schemas import (
     VisualIdentificationContent,
     VisualIdentificationSubmission,
 )
-from app.ai.generation.prompts import build_activity_generation_messages
+from app.ai.generation.prompts import (
+    build_activity_generation_messages,
+    compile_generation_prompt,
+    compile_lesson_prompt,
+)
 from app.ai.orchestrator.orchestrator import AIOrchestrator, get_ai_orchestrator
+from app.ai.providers.base import Message, MessageRole
 from app.core.errors import NotFoundError, ValidationError
 from app.curriculum.service import CurriculumService
 from app.learners.service import LearnerService
@@ -47,6 +57,7 @@ logger = structlog.get_logger(__name__)
 
 # In-memory registry of generated activities for session retrieval & evaluation
 _ACTIVITIES_CACHE: dict[uuid.UUID, Activity] = {}
+_ACTIVITIES_HISTORY: dict[uuid.UUID, ActivityGenerationSummary] = {}
 
 
 def _extract_localized_text(field_value: Any, lang: str = "en") -> str:
@@ -139,11 +150,13 @@ class ActivityService:
                 f"Activity type '{target_activity_type.value}' is prohibited by teacher constraints for this learner."
             )
 
-        # 4. Determine Effective Difficulty Level
-        if request.difficulty_level is not None:
-            effective_difficulty = request.difficulty_level
+        # 4. Determine Effective Difficulty Level (Phase 8 adaptive lock takes absolute precedence)
+        if request.phase8_locked_difficulty is not None:
+            effective_difficulty = request.phase8_locked_difficulty
         elif locked_difficulty is not None:
             effective_difficulty = locked_difficulty
+        elif request.difficulty_level is not None:
+            effective_difficulty = request.difficulty_level
         else:
             effective_difficulty = objective.difficulty_level or 1
 
@@ -200,17 +213,20 @@ class ActivityService:
                 except Exception as content_bank_err:
                     logger.warning("content_bank_lookup_skipped", error=str(content_bank_err))
 
-                messages = build_activity_generation_messages(
+                compiled = compile_generation_prompt(
+                    spec=request,
                     objective_title=objective_title,
                     objective_description=objective_desc,
-                    difficulty_level=effective_difficulty,
-                    activity_type=target_activity_type,
                     assessment_criteria=objective.assessment_criteria,
                     learner_context=learner_context,
-                    language=request.language,
                     grounding_chunks=grounding_chunks,
                     authoritative_content=authoritative_content_payload,
+                    phase8_decision={"locked_difficulty": locked_difficulty} if locked_difficulty is not None else None,
                 )
+                messages = [
+                    Message(role=MessageRole.SYSTEM, content=compiled.system_prompt),
+                    Message(role=MessageRole.USER, content=compiled.user_prompt),
+                ]
 
                 # Generate structured output conforming to Activity JSON schema
                 output_schema = Activity.model_json_schema()
@@ -231,6 +247,19 @@ class ActivityService:
 
                 activity = Activity.model_validate(raw_response)
                 _ACTIVITIES_CACHE[activity.id] = activity
+
+                from datetime import datetime, timezone
+                _ACTIVITIES_HISTORY[activity.id] = ActivityGenerationSummary(
+                    id=activity.id,
+                    objective_id=request.objective_id,
+                    activity_type=activity.activity_type,
+                    difficulty_level=activity.difficulty_level,
+                    title=activity.title,
+                    generation_source=self.orchestrator.provider.provider_name,
+                    fallback_used=False,
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                    grounding_sources_count=len(grounding_sources),
+                )
 
                 logger.info(
                     "activity_generated_successfully",
@@ -265,8 +294,23 @@ class ActivityService:
             difficulty_level=effective_difficulty,
             activity_type=target_activity_type,
             language=request.language,
+            item_count=request.item_count,
+            seed=request.seed or 0,
         )
         _ACTIVITIES_CACHE[fallback.id] = fallback
+
+        from datetime import datetime, timezone
+        _ACTIVITIES_HISTORY[fallback.id] = ActivityGenerationSummary(
+            id=fallback.id,
+            objective_id=request.objective_id,
+            activity_type=fallback.activity_type,
+            difficulty_level=fallback.difficulty_level,
+            title=fallback.title,
+            generation_source="deterministic_fallback",
+            fallback_used=True,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            grounding_sources_count=0,
+        )
 
         logger.info(
             "activity_fallback_generated",
@@ -283,9 +327,238 @@ class ActivityService:
             grounding_sources=[],
         )
 
+    async def preview_prompt(
+        self,
+        request: ActivityGenerateRequest,
+    ) -> EffectiveGenerationPrompt:
+        """
+        Compile the full prompt specification safely for teacher preview.
+        """
+        curriculum_service = CurriculumService(self.session)
+        objective = await curriculum_service.get_learning_objective(request.objective_id)
+        if not objective:
+            raise NotFoundError(f"Learning objective with id '{request.objective_id}' not found.")
+
+        objective_title = _extract_localized_text(objective.title, request.language)
+        objective_desc = _extract_localized_text(objective.description, request.language) if objective.description else None
+
+        grounding_chunks = []
+        try:
+            from app.knowledge.retrieval import get_knowledge_retrieval_service
+            retrieval_service = get_knowledge_retrieval_service()
+            grounding_chunks = await retrieval_service.retrieve_pedagogical_context(
+                query=f"{objective_title} {objective_desc or ''}".strip(),
+                top_k=3,
+            )
+        except Exception:
+            pass
+
+        authoritative_content_payload = None
+        try:
+            from app.content.bank import get_content_bank
+            bank = get_content_bank()
+            target_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
+            diff = request.difficulty_level or 1
+            content_item = bank.get_by_objective(request.objective_id, target_type, diff)
+            if content_item:
+                authoritative_content_payload = {
+                    "prompt": content_item.get_prompt(request.language),
+                    "correct_answer": content_item.correct_answer,
+                    "content_payload": content_item.content_payload,
+                }
+        except Exception:
+            pass
+
+        if request.mode == "lesson":
+            return compile_lesson_prompt(
+                spec=request,
+                objective_title=objective_title,
+                objective_description=objective_desc,
+                grounding_chunks=grounding_chunks,
+                authoritative_content=authoritative_content_payload,
+            )
+
+        return compile_generation_prompt(
+            spec=request,
+            objective_title=objective_title,
+            objective_description=objective_desc,
+            assessment_criteria=objective.assessment_criteria,
+            grounding_chunks=grounding_chunks,
+            authoritative_content=authoritative_content_payload,
+        )
+
+    async def generate_lesson(
+        self,
+        request: ActivityGenerateRequest,
+        current_user: User | None = None,
+    ) -> LessonGenerateResponse:
+        """
+        Generate a structured 10-minute mini-lesson plan conforming to Gradual Release of Responsibility.
+        """
+        curriculum_service = CurriculumService(self.session)
+        objective = await curriculum_service.get_learning_objective(request.objective_id)
+        if not objective:
+            raise NotFoundError(f"Learning objective with id '{request.objective_id}' not found.")
+
+        objective_title = _extract_localized_text(objective.title, request.language)
+        objective_desc = _extract_localized_text(objective.description, request.language) if objective.description else None
+
+        grounding_sources: list[dict[str, Any]] = []
+        grounding_chunks = []
+        try:
+            from app.knowledge.retrieval import get_knowledge_retrieval_service
+            retrieval_service = get_knowledge_retrieval_service()
+            grounding_chunks = await retrieval_service.retrieve_pedagogical_context(
+                query=f"{objective_title} {objective_desc or ''}".strip(),
+                top_k=3,
+            )
+            for c in grounding_chunks:
+                grounding_sources.append({
+                    "chunk_id": c.chunk_id,
+                    "title": c.document_title,
+                    "source": c.source,
+                    "category": c.category,
+                    "score": c.score,
+                    "excerpt": c.content[:200],
+                })
+        except Exception:
+            pass
+
+        authoritative_content_payload = None
+        try:
+            from app.content.bank import get_content_bank
+            bank = get_content_bank()
+            target_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
+            diff = request.difficulty_level or 1
+            content_item = bank.get_by_objective(request.objective_id, target_type, diff)
+            if content_item:
+                authoritative_content_payload = {
+                    "prompt": content_item.get_prompt(request.language),
+                    "correct_answer": content_item.correct_answer,
+                    "content_payload": content_item.content_payload,
+                }
+        except Exception:
+            pass
+
+        compiled = compile_lesson_prompt(
+            spec=request,
+            objective_title=objective_title,
+            objective_description=objective_desc,
+            grounding_chunks=grounding_chunks,
+            authoritative_content=authoritative_content_payload,
+        )
+
+        if self.orchestrator.is_available:
+            try:
+                messages = [
+                    Message(role=MessageRole.SYSTEM, content=compiled.system_prompt),
+                    Message(role=MessageRole.USER, content=compiled.user_prompt),
+                ]
+                output_schema = LessonPlan.model_json_schema()
+                raw_resp = await self.orchestrator.generate_structured(
+                    messages=messages,
+                    output_schema=output_schema,
+                )
+                if not raw_resp.get("id"):
+                    raw_resp["id"] = str(uuid.uuid4())
+                raw_resp["objective_id"] = str(request.objective_id)
+                raw_resp["generation_source"] = self.orchestrator.provider.provider_name
+                raw_resp["fallback_used"] = False
+                raw_resp["grounding_sources"] = grounding_sources
+
+                # Embed an interactive practice activity
+                embedded_act = create_fallback_activity(
+                    objective_id=request.objective_id,
+                    objective_title=objective_title,
+                    objective_description=objective_desc,
+                    difficulty_level=request.difficulty_level or 1,
+                    activity_type=request.activity_type or ActivityType.MULTIPLE_CHOICE,
+                    language=request.language,
+                    seed=request.seed or 0,
+                )
+                raw_resp["activity"] = embedded_act.model_dump()
+
+                lesson_plan = LessonPlan.model_validate(raw_resp)
+                return LessonGenerateResponse(
+                    lesson_plan=lesson_plan,
+                    fallback_used=False,
+                    generation_source=self.orchestrator.provider.provider_name,
+                    objective_id=request.objective_id,
+                    grounding_sources=grounding_sources,
+                )
+            except Exception as e:
+                logger.warning("lesson_plan_llm_failed_falling_back", error=str(e))
+
+        # Fallback mini-lesson
+        fallback_lesson = create_fallback_lesson(
+            objective_id=request.objective_id,
+            objective_title=objective_title,
+            objective_description=objective_desc,
+            difficulty_level=request.difficulty_level or 1,
+            language=request.language,
+            suggested_activity_type=request.activity_type or ActivityType.MULTIPLE_CHOICE,
+            seed=request.seed or 0,
+        )
+        return LessonGenerateResponse(
+            lesson_plan=fallback_lesson,
+            fallback_used=True,
+            generation_source="deterministic_fallback",
+            objective_id=request.objective_id,
+            grounding_sources=[],
+        )
+
+    async def update_activity(
+        self,
+        activity_id: uuid.UUID,
+        update: ActivityUpdateRequest,
+    ) -> Activity:
+        """
+        Safely update an existing activity's title, instructions, hints, or notes,
+        strictly re-running Pydantic schema validation.
+        """
+        activity = await self.get_activity(activity_id)
+        if not activity:
+            raise NotFoundError(f"Activity with id '{activity_id}' not found.")
+
+        raw = activity.model_dump()
+        if update.title is not None:
+            raw["title"] = update.title
+        if update.instructions is not None:
+            raw["instructions"] = update.instructions
+        if update.hints is not None:
+            raw["hints"] = update.hints
+        if update.teacher_notes is not None:
+            if not raw.get("metadata"):
+                raw["metadata"] = {}
+            raw["metadata"]["teacher_notes"] = update.teacher_notes
+
+        validated = Activity.model_validate(raw)
+        _ACTIVITIES_CACHE[validated.id] = validated
+        return validated
+
+    async def get_history(self) -> list[ActivityGenerationSummary]:
+        """Return recent activity generation history for the session."""
+        return list(_ACTIVITIES_HISTORY.values())[-20:]
+
+
     async def get_activity(self, activity_id: uuid.UUID) -> Activity | None:
-        """Retrieve a cached activity by its UUID."""
-        return _ACTIVITIES_CACHE.get(activity_id)
+        """Retrieve a cached activity by its UUID or resolve from Content Bank."""
+        act = _ACTIVITIES_CACHE.get(activity_id)
+        if act is not None:
+            return act
+
+        from app.content.bank import get_content_bank
+        bank = get_content_bank()
+        item = bank.get_by_id(activity_id)
+        if item is not None:
+            created = bank.create_activity_from_content(
+                item,
+                target_modality=item.supported_modalities[0],
+                activity_id=activity_id,
+            )
+            _ACTIVITIES_CACHE[activity_id] = created
+            return created
+        return None
 
     async def evaluate_submission(
         self,

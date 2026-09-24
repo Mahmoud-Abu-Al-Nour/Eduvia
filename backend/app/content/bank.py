@@ -42,6 +42,7 @@ class ContentBank:
 
     def __init__(self) -> None:
         self._items_by_key: dict[str, ContentItemDef] = {}
+        self._items_by_id: dict[uuid.UUID, ContentItemDef] = {}
         self._items_by_objective: dict[uuid.UUID, list[ContentItemDef]] = {}
         self._load_definitions()
 
@@ -49,6 +50,7 @@ class ContentBank:
         items = get_all_content_definitions()
         for item in items:
             self._items_by_key[item.content_key] = item
+            self._items_by_id[item.id] = item
             if item.objective_id not in self._items_by_objective:
                 self._items_by_objective[item.objective_id] = []
             self._items_by_objective[item.objective_id].append(item)
@@ -66,6 +68,10 @@ class ContentBank:
     def get_by_key(self, content_key: str) -> ContentItemDef | None:
         return self._items_by_key.get(content_key)
 
+    def get_by_id(self, item_id: uuid.UUID) -> ContentItemDef | None:
+        """Retrieve a content item by its deterministic UUID."""
+        return self._items_by_id.get(item_id)
+
     def get_by_objective(
         self,
         objective_id: uuid.UUID,
@@ -74,7 +80,13 @@ class ContentBank:
     ) -> ContentItemDef | None:
         """Retrieve a single authoritative content item matching the objective criteria."""
         matches = self.get_all_by_objective(objective_id, activity_type, difficulty_level)
-        return matches[0] if matches else None
+        if matches:
+            return matches[0]
+        if difficulty_level is not None:
+            fallback_matches = self.get_all_by_objective(objective_id, activity_type, None)
+            if fallback_matches:
+                return fallback_matches[0]
+        return None
 
     def get_all_by_objective(
         self,
