@@ -33,6 +33,7 @@ from app.activities.schemas import (
     ActivityType,
 )
 from app.activities.service import ActivityService
+from app.analytics.models import ActivityAttempt, PerformanceEvent
 from app.auth.security import get_password_hash
 from app.curriculum.router import get_curriculum_service
 from app.database.session import get_db_session
@@ -44,6 +45,13 @@ from app.learners.schemas import (
     LearnerUpdate,
 )
 from app.main import app
+from app.seeds.test_data_definitions import (
+    COHORT_B_TEACHER_EMAIL,
+    COHORT_B_TEACHER_ID,
+    COHORT_B_TEACHER_NAME,
+    generate_learner_definitions,
+    get_test_uuid,
+)
 from app.users.models import User, UserRole
 
 now = datetime.now(UTC)
@@ -54,6 +62,17 @@ demo_teacher = User(
     id=teacher_id,
     email="teacher@eduvia.app",
     full_name="Alice Teacher",
+    hashed_password=get_password_hash("strongpassword123"),
+    role=UserRole.teacher,
+    is_active=True,
+    created_at=now,
+    updated_at=now,
+)
+
+demo_teacher_b = User(
+    id=COHORT_B_TEACHER_ID,
+    email=COHORT_B_TEACHER_EMAIL,
+    full_name=COHORT_B_TEACHER_NAME,
     hashed_password=get_password_hash("strongpassword123"),
     role=UserRole.teacher,
     is_active=True,
@@ -163,6 +182,8 @@ class MockUserService:
             return demo_teacher
         if email == "admin@eduvia.app":
             return demo_admin
+        if email == COHORT_B_TEACHER_EMAIL:
+            return demo_teacher_b
         return None
 
     async def get_by_id(self, uid: uuid.UUID) -> User | None:
@@ -170,6 +191,8 @@ class MockUserService:
             return demo_teacher
         if uid == admin_id:
             return demo_admin
+        if uid == COHORT_B_TEACHER_ID:
+            return demo_teacher_b
         return None
 
 
@@ -805,6 +828,106 @@ class MockAnalyticsService:
 
 _MOCK_ANALYTICS_INSTANCE = MockAnalyticsService()
 
+# ── Load 20 Test Student Scenarios and Telemetry into In-Memory Fixtures ─────
+_test_learner_defs = generate_learner_definitions(now=now)
+for _s in _test_learner_defs:
+    _assigned_tid = teacher_id if _s.cohort_key == "cohort_a" else COHORT_B_TEACHER_ID
+    _t_learner = Learner(
+        id=_s.learner_id,
+        name=_s.name,
+        age_group=_s.age_group,
+        learning_level=_s.learning_level,
+        teacher_id=_assigned_tid,
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+    _t_profile = LearnerProfile(
+        id=_s.profile_id,
+        learner_id=_s.learner_id,
+        learner=_t_learner,
+        communication_preferences={
+            "primary_mode": _s.communication_primary_mode,
+            "receptive_preference": _s.receptive_preferences,
+            "expressive_preference": _s.expressive_preferences,
+            "notes": f"Scenario: {_s.key}. {_s.summary_description}",
+        },
+        current_skill_level={
+            "literacy_stage": _s.literacy_stage,
+            "numeracy_stage": _s.numeracy_stage,
+            "attention_span_minutes": _s.attention_span_minutes,
+            "strengths": _s.strengths,
+            "focus_areas": _s.focus_areas,
+        },
+        support_requirements={
+            "sensory_accommodations": _s.sensory_accommodations,
+            "pacing": _s.pacing,
+            "guidance_level": "standard",
+        },
+        teacher_constraints={
+            "max_session_duration_minutes": _s.attention_span_minutes,
+            "excluded_modalities": [],
+            "required_modalities": ["Visual"],
+        },
+        teacher_notes=_s.teacher_notes,
+        teacher_overrides={},
+        modality_effectiveness=_s.modality_effectiveness,
+        strategy_effectiveness={"scaffolded_hints": 0.85, "visual_cueing": 0.88},
+        activity_type_effectiveness={"matching": 0.85, "ordering": 0.80},
+        difficulty_tolerance=1.5,
+        assistance_requirements={"preferred_prompt_hierarchy": "least_to_most"},
+        response_behavior={"typical_latency_seconds": 3.0},
+        observations={"scenario": _s.key},
+        created_at=now,
+        updated_at=now,
+    )
+    _t_learner.profile = _t_profile
+    in_memory_learners[_s.learner_id] = _t_learner
+
+    for _idx, _t in enumerate(_s.telemetry_events):
+        _event_time = now - timedelta(days=_t.days_ago, minutes=_idx * 15)
+        _att_id = get_test_uuid(f"attempt.{_s.key}.{_idx}")
+        _act_id = get_test_uuid(f"activity.{_s.key}.{_idx}")
+
+        _att = ActivityAttempt(
+            id=_att_id,
+            activity_id=_act_id,
+            learner_id=_s.learner_id,
+            session_id=get_test_uuid(f"session.{_s.key}.{_t.days_ago}"),
+            started_at=_event_time - timedelta(minutes=3),
+            completed_at=_event_time,
+            response_data={"selected": "option_A", "correct": _t.correct, "score": _t.score},
+            score=_t.score,
+            completed=_t.completed,
+            created_at=_event_time,
+            updated_at=_event_time,
+        )
+        _MOCK_ANALYTICS_INSTANCE.attempts.append(_att)
+
+        _pevent = PerformanceEvent(
+            id=get_test_uuid(f"event.{_s.key}.{_idx}"),
+            learner_id=_s.learner_id,
+            activity_id=_act_id,
+            attempt_id=_att_id,
+            objective_id=_t.objective_id,
+            activity_type=_t.activity_type,
+            modality=_t.modality,
+            strategy=_t.strategy,
+            correct=_t.correct,
+            score=_t.score,
+            attempts=1,
+            response_time_ms=_t.response_time_ms,
+            hints_used=_t.hints_used,
+            assistance_level=_t.assistance_level,
+            completed=_t.completed,
+            difficulty=_t.difficulty,
+            event_metadata={"scenario": _s.key, "test_data": True},
+            timestamp=_event_time,
+            created_at=_event_time,
+            updated_at=_event_time,
+        )
+        _MOCK_ANALYTICS_INSTANCE.events.append(_pevent)
+
 
 class MockRecommendationService:
     """Mock RecommendationService for offline development."""
@@ -900,51 +1023,91 @@ _MOCK_RECOMMENDATION_INSTANCE = MockRecommendationService()
 
 
 class MockTeacherDashboardService:
-    """Mock TeacherDashboardService for offline development."""
+    """Mock TeacherDashboardService for offline development with cohort awareness."""
+
+    def _get_scoped_learners(self, teacher_user: User | None = None) -> list[Learner]:
+        learners = list(in_memory_learners.values())
+        if teacher_user and getattr(teacher_user, "role", None) != UserRole.admin:
+            learners = [l for l in learners if getattr(l, "teacher_id", None) == teacher_user.id]
+        return learners
 
     async def get_dashboard_overview(self, teacher_user: User | None = None) -> TeacherDashboardOverview:
-        learners = list(in_memory_learners.values())
-        events = _MOCK_ANALYTICS_INSTANCE.events
-        active_count = len({e.learner_id for e in events})
-        completed_count = sum(1 for e in events if e.completed)
-        avg_acc = round(sum(1 for e in events if e.correct) / len(events), 2) if events else 0.85
+        learners = self._get_scoped_learners(teacher_user)
+        learner_ids = {l.id for l in learners}
+        events = [e for e in _MOCK_ANALYTICS_INSTANCE.events if e.learner_id in learner_ids]
+        
+        # Consider active in last 7 days
+        seven_days_ago = datetime.now(UTC) - timedelta(days=7)
+        active_ids = {e.learner_id for e in events if e.timestamp >= seven_days_ago}
+        completed_7d = sum(1 for e in events if e.completed and e.timestamp >= seven_days_ago)
+        events_7d = [e for e in events if e.timestamp >= seven_days_ago]
+        avg_acc = round(sum(1 for e in events_7d if e.correct) / len(events_7d), 2) if events_7d else (
+            round(sum(1 for e in events if e.correct) / len(events), 2) if events else 0.85
+        )
+        
         alerts = await self.get_intervention_alerts(teacher_user)
+        teacher_display = teacher_user.full_name if (teacher_user and teacher_user.full_name) else "Alice Teacher"
+        
         return TeacherDashboardOverview(
             total_learners=len(learners),
-            active_learners_7d=active_count,
-            total_activities_completed_7d=completed_count,
+            active_learners_7d=len(active_ids),
+            total_activities_completed_7d=completed_7d,
             cohort_average_accuracy_7d=avg_acc,
             active_alerts_count=len(alerts),
             recent_alerts=alerts[:5],
             teacher_id=teacher_user.id if teacher_user else teacher_id,
-            teacher_name=teacher_user.full_name if (teacher_user and teacher_user.full_name) else "Alice Teacher",
+            teacher_name=teacher_display,
             total_assigned_learners=len(learners),
-            active_learners_count=active_count,
-            total_completed_activities=completed_count,
+            active_learners_count=len(active_ids),
+            total_completed_activities=completed_7d,
             average_cohort_accuracy=avg_acc,
             pending_alerts=alerts[:5],
             recent_recommendations=[],
         )
 
     async def get_cohort_insights(self, teacher_user: User | None = None, days: int = 30) -> CohortInsights:
-        learners = list(in_memory_learners.values())
-        events = _MOCK_ANALYTICS_INSTANCE.events
+        learners = self._get_scoped_learners(teacher_user)
+        learner_ids = {l.id for l in learners}
+        cutoff = datetime.now(UTC) - timedelta(days=days)
+        events = [e for e in _MOCK_ANALYTICS_INSTANCE.events if e.learner_id in learner_ids and e.timestamp >= cutoff]
+        all_events = [e for e in _MOCK_ANALYTICS_INSTANCE.events if e.learner_id in learner_ids]
+        
         completed_count = sum(1 for e in events if e.completed)
-        avg_acc = round(sum(1 for e in events if e.correct) / len(events), 2) if events else 0.85
-        avg_asst = round(sum(e.assistance_level for e in events) / len(events), 2) if events else 0.8
+        avg_acc = round(sum(1 for e in events if e.correct) / len(events), 2) if events else (
+            round(sum(1 for e in all_events if e.correct) / len(all_events), 2) if all_events else 0.80
+        )
+        avg_asst = round(sum(e.assistance_level for e in events) / len(events), 2) if events else (
+            round(sum(e.assistance_level for e in all_events) / len(all_events), 2) if all_events else 0.5
+        )
+        
         modality_distribution = {"visual": 0.45, "interactive": 0.30, "audio": 0.15, "reading": 0.10}
-        mastery_distribution = {"mastered": 2, "developing": 1, "emerging": 0, "struggling": 0}
+        mastery_counts = {"mastered": 0, "developing": 0, "emerging": 0, "struggling": 0}
 
         learner_summaries = []
         for l in learners:
-            l_events = [e for e in events if e.learner_id == l.id]
-            l_acc = round(sum(1 for e in l_events if e.correct) / len(l_events), 2) if l_events else 0.85
-            l_asst = round(sum(e.assistance_level for e in l_events) / len(l_events), 2) if l_events else 0.7
+            l_events = [e for e in all_events if e.learner_id == l.id]
+            l_acc = round(sum(1 for e in l_events if e.correct) / len(l_events), 2) if l_events else 0.50
+            l_asst = round(sum(e.assistance_level for e in l_events) / len(l_events), 2) if l_events else 0.50
+            
+            if l_acc >= 0.85:
+                mastery_counts["mastered"] += 1
+            elif l_acc >= 0.70:
+                mastery_counts["developing"] += 1
+            elif l_acc >= 0.50:
+                mastery_counts["emerging"] += 1
+            else:
+                mastery_counts["struggling"] += 1
+
             comm_pref = "verbal"
             if hasattr(l, "profile") and l.profile and l.profile.communication_preferences:
                 comm_pref = l.profile.communication_preferences.get("primary_mode", "verbal")
 
-            learner_name = getattr(l, "name", "Tariq Al-Mansoor")
+            learner_name = getattr(l, "name", "Student")
+            last_active = l_events[-1].timestamp if l_events else (datetime.now(UTC) - timedelta(days=60))
+            
+            # Check alerts for this learner
+            l_alert_count = 1 if l_acc < 0.50 or l_asst > 1.2 else 0
+
             learner_summaries.append(
                 CohortLearnerSummary(
                     learner_id=l.id,
@@ -958,13 +1121,15 @@ class MockTeacherDashboardService:
                     overall_accuracy=l_acc,
                     average_assistance=l_asst,
                     average_assistance_level=l_asst,
-                    mastered_objectives_count=1,
-                    in_progress_objectives_count=1,
-                    last_active_at=l_events[-1].timestamp if l_events else now,
-                    active_alert_count=0,
-                    active_alerts_count=0,
+                    mastered_objectives_count=2 if l_acc >= 0.80 else (1 if l_acc >= 0.60 else 0),
+                    in_progress_objectives_count=1 if l_acc < 0.80 else 0,
+                    last_active_at=last_active,
+                    active_alert_count=l_alert_count,
+                    active_alerts_count=l_alert_count,
                 )
             )
+
+        active_in_period = len({e.learner_id for e in events})
 
         return CohortInsights(
             cohort_size=len(learners),
@@ -972,48 +1137,115 @@ class MockTeacherDashboardService:
             average_accuracy=avg_acc,
             average_assistance_level=avg_asst,
             modality_distribution=modality_distribution,
-            mastery_distribution=mastery_distribution,
+            mastery_distribution=mastery_counts,
             learner_summaries=learner_summaries,
             teacher_id=teacher_user.id if teacher_user else teacher_id,
             reporting_period=f"{days}_days",
             total_cohort_learners=len(learners),
-            active_learners_in_period=len(learners),
+            active_learners_in_period=active_in_period,
             cohort_accuracy=avg_acc,
             cohort_avg_assistance_level=avg_asst,
             total_activities_completed=completed_count,
-            mastery_status_counts=mastery_distribution,
+            mastery_status_counts=mastery_counts,
             learners=learner_summaries,
         )
 
     async def get_intervention_alerts(
         self, teacher_user: User | None = None, target_learner_id: uuid.UUID | None = None
     ) -> list[InterventionAlert]:
-        learners = list(in_memory_learners.values())
+        learners = self._get_scoped_learners(teacher_user)
         if target_learner_id:
             learners = [l for l in learners if l.id == target_learner_id]
 
         alerts = []
-        if learners:
-            target = learners[0]
-            target_name = getattr(target, "name", "Tariq Al-Mansoor")
-            alerts.append(
-                InterventionAlert(
-                    alert_id=f"alert_demo_{target.id}",
-                    learner_id=target.id,
-                    learner_display_name=target_name,
-                    trigger_type=AlertTriggerType.high_assistance,
-                    severity=AlertSeverity.warning,
-                    message="Learner required Level 2 assistance across 3 consecutive matching attempts.",
-                    summary="Learner required Level 2 assistance across 3 consecutive matching attempts.",
-                    recommended_action="Introduce multi-sensory visual cues or reduce target distractor count.",
-                    recommended_pedagogical_action="Introduce multi-sensory visual cues or reduce target distractor count.",
-                    evidence_context={"average_assistance": 2.0, "attempts": 3},
-                    evidence_metrics={"average_assistance": 2.0, "attempts": 3},
-                    detected_at=now,
-                    created_at=now,
-                    is_resolved=False,
+        now_dt = datetime.now(UTC)
+        
+        for l in learners:
+            l_name = getattr(l, "name", "Student")
+            l_events = [e for e in _MOCK_ANALYTICS_INSTANCE.events if e.learner_id == l.id]
+            if not l_events:
+                continue
+            l_acc = sum(1 for e in l_events if e.correct) / len(l_events)
+            l_asst = sum(e.assistance_level for e in l_events) / len(l_events)
+
+            # Scenario-specific alerts
+            if "At Risk" in l_name:
+                alerts.append(
+                    InterventionAlert(
+                        alert_id=f"alert_risk_{l.id}",
+                        learner_id=l.id,
+                        learner_display_name=l_name,
+                        trigger_type=AlertTriggerType.low_accuracy,
+                        severity=AlertSeverity.action_required,
+                        message="Critical learning regression: Accuracy dropped below 30% with extended inactivity.",
+                        summary="Critical learning regression: Accuracy dropped below 30% with extended inactivity.",
+                        recommended_action="Schedule 1:1 check-in and re-assign foundational visual vocabulary modules.",
+                        recommended_pedagogical_action="Schedule 1:1 check-in and re-assign foundational visual vocabulary modules.",
+                        evidence_context={"overall_accuracy": round(l_acc, 2), "days_inactive": 28},
+                        evidence_metrics={"overall_accuracy": round(l_acc, 2), "days_inactive": 28},
+                        detected_at=now_dt - timedelta(days=2),
+                        created_at=now_dt - timedelta(days=2),
+                        is_resolved=False,
+                    )
                 )
-            )
+            elif "Struggling" in l_name:
+                alerts.append(
+                    InterventionAlert(
+                        alert_id=f"alert_struggle_{l.id}",
+                        learner_id=l.id,
+                        learner_display_name=l_name,
+                        trigger_type=AlertTriggerType.high_assistance,
+                        severity=AlertSeverity.warning,
+                        message="High assistance dependency detected: Required Level 2 assistance across recent attempts.",
+                        summary="High assistance dependency detected: Required Level 2 assistance across recent attempts.",
+                        recommended_action="Activate high-contrast visual cues and reduce multiple-choice distractors.",
+                        recommended_pedagogical_action="Activate high-contrast visual cues and reduce multiple-choice distractors.",
+                        evidence_context={"average_assistance": round(l_asst, 2), "accuracy": round(l_acc, 2)},
+                        evidence_metrics={"average_assistance": round(l_asst, 2), "accuracy": round(l_acc, 2)},
+                        detected_at=now_dt - timedelta(days=1),
+                        created_at=now_dt - timedelta(days=1),
+                        is_resolved=False,
+                    )
+                )
+            elif "Inconsistent" in l_name:
+                alerts.append(
+                    InterventionAlert(
+                        alert_id=f"alert_inconsistent_{l.id}",
+                        learner_id=l.id,
+                        learner_display_name=l_name,
+                        trigger_type=AlertTriggerType.stalled_mastery,
+                        severity=AlertSeverity.info,
+                        message="High performance variance: Alternating between high scores and zero completion.",
+                        summary="High performance variance: Alternating between high scores and zero completion.",
+                        recommended_action="Review sensory engagement settings and check for environmental fatigue.",
+                        recommended_pedagogical_action="Review sensory engagement settings and check for environmental fatigue.",
+                        evidence_context={"variance_detected": True, "completed_ratio": 0.5},
+                        evidence_metrics={"variance_detected": True, "completed_ratio": 0.5},
+                        detected_at=now_dt - timedelta(days=3),
+                        created_at=now_dt - timedelta(days=3),
+                        is_resolved=False,
+                    )
+                )
+            elif "Low Engagement" in l_name:
+                alerts.append(
+                    InterventionAlert(
+                        alert_id=f"alert_low_eng_{l.id}",
+                        learner_id=l.id,
+                        learner_display_name=l_name,
+                        trigger_type=AlertTriggerType.inactivity,
+                        severity=AlertSeverity.warning,
+                        message="Declining session frequency despite adequate historical accuracy.",
+                        summary="Declining session frequency despite adequate historical accuracy.",
+                        recommended_action="Send gamified reminder badge and introduce interactive auditory prompts.",
+                        recommended_pedagogical_action="Send gamified reminder badge and introduce interactive auditory prompts.",
+                        evidence_context={"last_session_days_ago": 18, "historical_accuracy": round(l_acc, 2)},
+                        evidence_metrics={"last_session_days_ago": 18, "historical_accuracy": round(l_acc, 2)},
+                        detected_at=now_dt - timedelta(days=4),
+                        created_at=now_dt - timedelta(days=4),
+                        is_resolved=False,
+                    )
+                )
+
         return alerts
 
     async def get_learner_iep_report(

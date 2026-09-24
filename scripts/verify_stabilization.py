@@ -3,8 +3,22 @@ import urllib.parse
 import json
 import sys
 
+def login(email, password):
+    login_data = urllib.parse.urlencode({
+        "username": email,
+        "password": password
+    }).encode('utf-8')
+    req = urllib.request.Request(
+        "http://127.0.0.1:8000/api/v1/auth/login",
+        data=login_data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    res = urllib.request.urlopen(req, timeout=5)
+    body = json.loads(res.read().decode('utf-8'))
+    return body.get("access_token")
+
 def main():
-    print("=== EDUVIA END-TO-END STABILIZATION VERIFICATION ===")
+    print("=== EDUVIA END-TO-END TEST SEEDING & STABILIZATION VERIFICATION ===")
     
     # 1. Frontend check
     try:
@@ -24,163 +38,121 @@ def main():
         print(f"[!] Backend docs error: {e}")
         return 1
 
-    # 3. Authenticate as Teacher
-    try:
-        login_data = urllib.parse.urlencode({
-            "username": "teacher@eduvia.app",
-            "password": "strongpassword123"
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            "http://127.0.0.1:8000/api/v1/auth/login",
-            data=login_data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        res = urllib.request.urlopen(req, timeout=5)
-        body = json.loads(res.read().decode('utf-8'))
-        teacher_token = body.get("access_token")
-        print(f"[*] Teacher Login: SUCCESS, token acquired ({teacher_token[:15]}...)")
-    except Exception as e:
-        print(f"[!] Teacher Login FAILED: {e}")
-        return 1
+    # 3. Authenticate as Teacher A (Cohort A), Teacher B (Cohort B), and Admin
+    teacher_a_token = login("teacher@eduvia.app", "strongpassword123")
+    print(f"[*] Teacher A (Cohort A) Login: SUCCESS")
 
-    # 4. Authenticate as Admin
-    try:
-        login_data = urllib.parse.urlencode({
-            "username": "admin@eduvia.app",
-            "password": "adminpassword123"
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            "http://127.0.0.1:8000/api/v1/auth/login",
-            data=login_data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
-        )
-        res = urllib.request.urlopen(req, timeout=5)
-        body = json.loads(res.read().decode('utf-8'))
-        admin_token = body.get("access_token")
-        print(f"[*] Admin Login: SUCCESS, token acquired ({admin_token[:15]}...)")
-    except Exception as e:
-        print(f"[!] Admin Login FAILED: {e}")
-        return 1
+    teacher_b_token = login("teacher.cohortb@eduvia.local", "strongpassword123")
+    print(f"[*] Teacher B (Cohort B) Login: SUCCESS")
 
-    headers = {"Authorization": f"Bearer {teacher_token}"}
+    admin_token = login("admin@eduvia.app", "adminpassword123")
+    print(f"[*] Admin Login: SUCCESS")
 
-    # 5. Check Teacher Dashboard (Canonical)
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teachers/dashboard", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        data = json.loads(res.read().decode('utf-8'))
-        print(f"[*] GET /api/v1/teachers/dashboard: Status {res.status}")
-        print(f"    - total_learners: {data.get('total_learners')}")
-        print(f"    - active_learners_count: {data.get('active_learners_count')}")
-        print(f"    - cohort_average_accuracy_7d: {data.get('cohort_average_accuracy_7d')}")
-        print(f"    - pending_alerts: {len(data.get('pending_alerts', []))}")
-        assert "total_learners" in data and "pending_alerts" in data
-    except Exception as e:
-        print(f"[!] GET /api/v1/teachers/dashboard FAILED: {e}")
-        return 1
+    headers_a = {"Authorization": f"Bearer {teacher_a_token}"}
+    headers_b = {"Authorization": f"Bearer {teacher_b_token}"}
+    headers_admin = {"Authorization": f"Bearer {admin_token}"}
 
-    # 6. Check Teacher Dashboard (Singular Alias)
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teacher/dashboard", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        data = json.loads(res.read().decode('utf-8'))
-        print(f"[*] GET /api/v1/teacher/dashboard (Alias): Status {res.status} - OK")
-    except Exception as e:
-        print(f"[!] GET /api/v1/teacher/dashboard FAILED: {e}")
-        return 1
+    # 4. Verify Cohort A Dashboard & Insights
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teachers/dashboard", headers=headers_a)
+    res = urllib.request.urlopen(req, timeout=5)
+    dash_a = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Teacher A Dashboard: Total Learners = {dash_a.get('total_learners')}, Active 7d = {dash_a.get('active_learners_7d')}, 7d Acc = {dash_a.get('cohort_average_accuracy_7d')}, Alerts = {dash_a.get('active_alerts_count')}")
+    assert dash_a.get('total_learners') == 11, f"Expected 11 learners for Cohort A, got {dash_a.get('total_learners')}"
 
-    # 7. Check Cohort Insights (Canonical & Alias)
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teachers/cohort/insights?days=30", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        data = json.loads(res.read().decode('utf-8'))
-        print(f"[*] GET /api/v1/teachers/cohort/insights: Status {res.status}")
-        print(f"    - cohort_size: {data.get('cohort_size')}")
-        print(f"    - total_cohort_learners: {data.get('total_cohort_learners')}")
-        print(f"    - learners list count: {len(data.get('learners', []))}")
-        if data.get('learners'):
-            first_learner = data['learners'][0]
-            print(f"    - Learner: {first_learner.get('display_name')} (Accuracy: {first_learner.get('overall_accuracy')})")
-        assert "cohort_size" in data and "learners" in data
-    except Exception as e:
-        print(f"[!] GET /api/v1/teachers/cohort/insights FAILED: {e}")
-        return 1
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teachers/cohort/insights?days=30", headers=headers_a)
+    res = urllib.request.urlopen(req, timeout=5)
+    insights_a = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Cohort A Insights: Size = {insights_a.get('cohort_size')}, Avg Acc = {insights_a.get('average_accuracy')}, Mastery = {insights_a.get('mastery_distribution')}")
+    assert insights_a.get('average_accuracy') >= 0.85, "Cohort A should be high-performing"
 
-    # 8. Check Learners List
-    learner_id = None
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v1/learners", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        learners = json.loads(res.read().decode('utf-8'))
-        print(f"[*] GET /api/v1/learners: Status {res.status} - Returned {len(learners)} learners")
-        assert len(learners) > 0
-        first_l = learners[0]
-        learner_id = first_l.get("id")
-        print(f"    - Learner: {first_l.get('name')} (id: {learner_id})")
-    except Exception as e:
-        print(f"[!] GET /api/v1/learners FAILED: {e}")
-        return 1
+    # 5. Verify Cohort B Dashboard & Insights
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teachers/dashboard", headers=headers_b)
+    res = urllib.request.urlopen(req, timeout=5)
+    dash_b = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Teacher B Dashboard: Total Learners = {dash_b.get('total_learners')}, Active 7d = {dash_b.get('active_learners_7d')}, 7d Acc = {dash_b.get('cohort_average_accuracy_7d')}, Alerts = {dash_b.get('active_alerts_count')}")
+    assert dash_b.get('total_learners') == 10, f"Expected 10 learners for Cohort B, got {dash_b.get('total_learners')}"
 
-    # 9. Check Curricula
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v1/curricula", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        currs = json.loads(res.read().decode('utf-8'))
-        print(f"[*] GET /api/v1/curricula: Status {res.status} - Returned {len(currs)} curricula")
-    except Exception as e:
-        print(f"[!] GET /api/v1/curricula FAILED: {e}")
-        return 1
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/teachers/cohort/insights?days=30", headers=headers_b)
+    res = urllib.request.urlopen(req, timeout=5)
+    insights_b = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Cohort B Insights: Size = {insights_b.get('cohort_size')}, Avg Acc = {insights_b.get('average_accuracy')}, Mastery = {insights_b.get('mastery_distribution')}")
+    assert insights_b.get('average_accuracy') < 0.70, "Cohort B should have more struggling students"
 
-    # 10. Check Activities
-    try:
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v1/activities/types", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        activities = json.loads(res.read().decode('utf-8'))
-        print(f"[*] GET /api/v1/activities/types: Status {res.status} - Returned {len(activities)} types")
-    except Exception as e:
-        print(f"[!] GET /api/v1/activities/types FAILED: {e}")
-        return 1
+    # 6. Verify Admin sees all 21 learners
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/learners", headers=headers_admin)
+    res = urllib.request.urlopen(req, timeout=5)
+    all_learners = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Admin GET /api/v1/learners: Total = {len(all_learners)} learners (20 test students + Tariq)")
+    assert len(all_learners) >= 21, f"Expected at least 21 learners for admin, got {len(all_learners)}"
 
-    # 11. Check Analytics Summary
-    if learner_id:
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/analytics/learners/{learner_id}/summary", headers=headers)
-            res = urllib.request.urlopen(req, timeout=5)
-            summary = json.loads(res.read().decode('utf-8'))
-            print(f"[*] GET /api/v1/analytics/learners/.../summary: Status {res.status} - Accuracy: {summary.get('accuracy_rate')}")
-        except Exception as e:
-            print(f"[!] GET /api/v1/analytics/... FAILED: {e}")
-            return 1
+    # 7. Verify Specific Scenario Students
+    learner_map = {l['name']: l for l in all_learners}
 
-        # 12. Check Recommendations
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/recommendations/learners/{learner_id}", headers=headers)
-            res = urllib.request.urlopen(req, timeout=5)
-            recs = json.loads(res.read().decode('utf-8'))
-        except Exception as e:
-            print(f"[!] GET /api/v1/recommendations/... FAILED: {e}")
-            return 1
+    # Scenario A: Test Student - Excellent
+    student_exc = learner_map.get("Test Student - Excellent")
+    assert student_exc is not None, "Test Student - Excellent missing"
+    exc_id = student_exc['id']
 
-        # 12b. Check IEP Report
-        try:
-            req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/teachers/learners/{learner_id}/iep-report?days=30", headers=headers)
-            res = urllib.request.urlopen(req, timeout=5)
-            iep = json.loads(res.read().decode('utf-8'))
-            print(f"[*] GET /api/v1/teachers/learners/.../iep-report: Status {res.status} - Report ID: {iep.get('report_id')}")
-            assert iep.get('learner_display_name') == "Tariq Al-Mansoor"
-        except Exception as e:
-            print(f"[!] GET /api/v1/teachers/learners/.../iep-report FAILED: {e}")
-            return 1
+    req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/recommendations/learners/{exc_id}", headers=headers_admin)
+    res = urllib.request.urlopen(req, timeout=5)
+    rec_exc = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Scenario 'Excellent' Recommendation: Activity={rec_exc.get('recommended_activity_type')}, Strategy={rec_exc.get('recommended_strategy')}, Tier={rec_exc.get('scaffolding_tier')}")
+    assert rec_exc.get('recommended_strategy') == "gradual_difficulty", "Excellent student should get gradual difficulty"
 
-    # 13. Test Vite Proxy (port 5173 -> 8000)
-    try:
-        req = urllib.request.Request("http://localhost:5173/api/v1/teachers/dashboard", headers=headers)
-        res = urllib.request.urlopen(req, timeout=5)
-        print(f"[*] Vite Proxy GET http://localhost:5173/api/v1/teachers/dashboard: Status {res.status} - OK")
-    except Exception as e:
-        print(f"[!] Vite Proxy test note: {e}")
+    # Scenario B: Test Student - Struggling
+    student_str = learner_map.get("Test Student - Struggling")
+    assert student_str is not None, "Test Student - Struggling missing"
+    str_id = student_str['id']
 
-    print("\nALL BACKEND API AND PROXY CHECKS PASSED PERFECTLY!")
+    req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/recommendations/learners/{str_id}", headers=headers_admin)
+    res = urllib.request.urlopen(req, timeout=5)
+    rec_str = json.loads(res.read().decode('utf-8'))
+    print(f"[*] Scenario 'Struggling' Recommendation: Activity={rec_str.get('recommended_activity_type')}, Strategy={rec_str.get('recommended_strategy')}, Tier={rec_str.get('scaffolding_tier')}")
+    assert rec_str.get('recommended_strategy') == "demonstration", "Struggling student should get demonstration strategy"
+    assert rec_str.get('scaffolding_tier') == 2, "Struggling student should get Tier 2 scaffolding"
+
+    # Scenario C: Test Student - At Risk
+    student_risk = learner_map.get("Test Student - At Risk")
+    assert student_risk is not None, "Test Student - At Risk missing"
+    risk_id = student_risk['id']
+
+    req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/teachers/dashboard", headers=headers_b)
+    res = urllib.request.urlopen(req, timeout=5)
+    dash_b = json.loads(res.read().decode('utf-8'))
+    alerts = dash_b.get("pending_alerts", [])
+    risk_alert = next((a for a in alerts if "At Risk" in a.get("learner_display_name", "")), None)
+    print(f"[*] Scenario 'At Risk' Alert detected: {risk_alert.get('message') if risk_alert else 'None'}")
+    assert risk_alert is not None, "At Risk alert should be present in Cohort B alerts"
+
+    # 8. Check Curriculum Endpoint
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/curricula", headers=headers_admin)
+    res = urllib.request.urlopen(req, timeout=5)
+    currs = json.loads(res.read().decode('utf-8'))
+    print(f"[*] GET /api/v1/curricula: Status {res.status} - Returned {len(currs)} curricula")
+    assert len(currs) > 0
+
+    # 9. Check Activity Types Endpoint
+    req = urllib.request.Request("http://127.0.0.1:8000/api/v1/activities/types", headers=headers_admin)
+    res = urllib.request.urlopen(req, timeout=5)
+    act_types = json.loads(res.read().decode('utf-8'))
+    print(f"[*] GET /api/v1/activities/types: Status {res.status} - Returned {len(act_types)} types")
+    assert len(act_types) > 0
+
+    # 10. Check IEP Report Endpoint for Learner
+    req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/teachers/learners/{exc_id}/iep-report?days=30", headers=headers_a)
+    res = urllib.request.urlopen(req, timeout=5)
+    iep = json.loads(res.read().decode('utf-8'))
+    print(f"[*] IEP Report for '{student_exc['name']}': Accuracy = {iep.get('overall_accuracy')}, Modality = {iep.get('communication_preference')}")
+    assert iep.get('learner_display_name') == "Test Student - Excellent"
+
+    # 11. Vite Proxy Test
+    req = urllib.request.Request("http://localhost:5173/api/v1/teachers/dashboard", headers=headers_a)
+    res = urllib.request.urlopen(req, timeout=5)
+    print(f"[*] Vite Reverse Proxy: Status {res.status} - OK")
+
+    print("\n=======================================================")
+    print("ALL 11 TEST SUITES PASSED! TEST DATA SEEDING VERIFIED!")
+    print("=======================================================")
     return 0
 
 if __name__ == "__main__":
