@@ -26,6 +26,7 @@ def build_activity_generation_messages(
     learner_context: dict[str, Any] | None = None,
     language: str = "en",
     grounding_chunks: list[Any] | None = None,
+    authoritative_content: dict[str, Any] | None = None,
 ) -> list[Message]:
     """
     Construct system and user messages for structured activity generation.
@@ -75,6 +76,16 @@ def build_activity_generation_messages(
             f"- Teacher Custom Guidelines: {constraints.get('custom_guidelines', 'None specified')}\n"
         )
 
+    authoritative_notes = ""
+    if authoritative_content:
+        authoritative_notes = (
+            f"\nAUTHORITATIVE CONTENT GROUNDING (Base the activity on this verified educational data):\n"
+            f"- Question/Fact: {authoritative_content.get('prompt')}\n"
+            f"- Correct Answer: {authoritative_content.get('correct_answer')}\n"
+            f"- Reference Payload: {authoritative_content.get('content_payload')}\n"
+            f"- Pedagogical Rule: You may adapt presentation or visual styling to suit the learner, but the core fact, question structure, and correct answer must align with this authoritative ground truth.\n"
+        )
+
     user_prompt = (
         f"Generate a '{activity_type.value}' activity.\n\n"
         f"LEARNING OBJECTIVE:\n"
@@ -82,6 +93,7 @@ def build_activity_generation_messages(
         f"- Description: {objective_description or 'Focus on foundational understanding.'}\n"
         f"- Target Difficulty: Level {difficulty_level} (scale 1 to 5)\n"
         f"- Target Language: {language}\n"
+        f"{authoritative_notes}"
         f"{learner_notes}\n"
         f"FORMAT REQUIREMENTS:\n"
         f"Ensure your output contains:\n"

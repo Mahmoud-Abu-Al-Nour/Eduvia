@@ -1,8 +1,9 @@
 """
 Eduvia — Demo Data Seeding Script
 
-Creates initial demo users (Admin & Teacher) and the standard
-demonstration curriculum hierarchy for testing and development.
+Creates initial demo users (Admin & Teacher), the expanded foundational
+curriculum hierarchy (3 Subjects, 13 Units, 70 Objectives) with realistic
+prerequisite relationships, the Content Bank items, and learner profiles.
 """
 import asyncio
 import os
@@ -15,11 +16,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth.security import get_password_hash
+from app.content.definitions import ALL_CONTENT_ITEMS
+from app.content.models import ContentItem
 from app.core.config import settings
+from app.curriculum.curriculum_catalog import (
+    CURRICULUM_DESCRIPTION,
+    CURRICULUM_ID,
+    CURRICULUM_TITLE,
+    CURRICULUM_VERSION,
+    FULL_CURRICULUM_CATALOG,
+)
 from app.curriculum.models import (
     Curriculum,
-    Lesson,
     LearningObjective,
+    Lesson,
     Subject,
     Unit,
     objective_prerequisites,
@@ -29,7 +39,7 @@ from app.users.models import User, UserRole
 
 
 async def seed_demo_data() -> None:
-    print("Starting Eduvia full demonstration data seeding...")
+    print("Starting Eduvia comprehensive demonstration and curriculum data seeding...")
     engine = create_async_engine(settings.effective_database_url)
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
@@ -68,103 +78,139 @@ async def seed_demo_data() -> None:
 
         await session.flush()
 
-        # ── 2. Seed Demo Curriculum Hierarchy ─────────────────────────────────
-        result = await session.execute(select(Curriculum).where(Curriculum.version == "demo-1.0"))
-        existing_curr = result.scalars().first()
-        if not existing_curr:
+        # ── 2. Seed Full Curriculum Hierarchy ─────────────────────────────────
+        result = await session.execute(select(Curriculum).where(Curriculum.id == CURRICULUM_ID))
+        curriculum = result.scalars().first()
+        if not curriculum:
             curriculum = Curriculum(
-                title={"en": "Eduvia Demonstration Curriculum", "ar": "منهج إدوفيا التجريبي"},
-                description={
-                    "en": "A standardized demonstration curriculum for inclusive numeracy.",
-                    "ar": "منهج تجريبي معياري لتطوير مهارات الحساب الشاملة.",
-                },
-                version="demo-1.0",
+                id=CURRICULUM_ID,
+                title=CURRICULUM_TITLE,
+                description=CURRICULUM_DESCRIPTION,
+                version=CURRICULUM_VERSION,
                 created_by_id=admin.id,
             )
             session.add(curriculum)
             await session.flush()
+            print(f"Created curriculum: {CURRICULUM_VERSION}")
+        else:
+            print(f"Curriculum already exists: {CURRICULUM_VERSION}")
 
-            # Subject
-            subject_math = Subject(
-                curriculum_id=curriculum.id,
-                title={"en": "Foundational Mathematics", "ar": "أساسيات الرياضيات"},
-                description={
-                    "en": "Basic mathematical reasoning, pattern recognition, and number sense.",
-                    "ar": "التفكير الرياضي الأساسي، التعرف على الأنماط، والحس العددي.",
-                },
-                order_index=1,
-            )
-            session.add(subject_math)
-            await session.flush()
+        # Seed subjects, units, lessons, objectives
+        prereq_links: list[tuple[any, any]] = []
+        seeded_objs_count = 0
 
-            # Unit
-            unit_numbers = Unit(
-                subject_id=subject_math.id,
-                title={"en": "Number Sense & Counting", "ar": "الحس العددي والعد"},
-                description={
-                    "en": "Understanding discrete quantities and numerical representations.",
-                    "ar": "فهم الكميات المنفصلة والتمثيلات العددية.",
-                },
-                order_index=1,
-            )
-            session.add(unit_numbers)
-            await session.flush()
+        for subj_data in FULL_CURRICULUM_CATALOG:
+            s_res = await session.execute(select(Subject).where(Subject.id == subj_data["id"]))
+            subject = s_res.scalars().first()
+            if not subject:
+                subject = Subject(
+                    id=subj_data["id"],
+                    curriculum_id=curriculum.id,
+                    title=subj_data["title"],
+                    description=subj_data["description"],
+                    order_index=subj_data["order_index"],
+                )
+                session.add(subject)
+                await session.flush()
 
-            # Lesson
-            lesson_recog = Lesson(
-                unit_id=unit_numbers.id,
-                title={"en": "Number Recognition 1–10", "ar": "التعرف على الأرقام من ١ إلى ١٠"},
-                description={
-                    "en": "Identifying digits visually and mapping them to quantities.",
-                    "ar": "التعرف البصري على الأرقام وربطها بالكميات.",
-                },
-                order_index=1,
-            )
-            session.add(lesson_recog)
-            await session.flush()
+            for unit_data in subj_data.get("units", []):
+                u_res = await session.execute(select(Unit).where(Unit.id == unit_data["id"]))
+                unit = u_res.scalars().first()
+                if not unit:
+                    unit = Unit(
+                        id=unit_data["id"],
+                        subject_id=subject.id,
+                        title=unit_data["title"],
+                        description=unit_data["description"],
+                        order_index=unit_data["order_index"],
+                    )
+                    session.add(unit)
+                    await session.flush()
 
-            # Objective 1 (Foundation)
-            obj_1_5 = LearningObjective(
-                lesson_id=lesson_recog.id,
-                title={"en": "Recognize numbers 1–5", "ar": "التعرف على الأرقام ١-٥"},
-                description={
-                    "en": "Identify written numerals 1 to 5 and match to dot patterns.",
-                    "ar": "التعرف على الأرقام المكتوبة من ١ إلى ٥ ومطابقتها مع أنماط النقاط.",
-                },
-                difficulty_level=1,
-                assessment_criteria={"minimum_accuracy": 0.8, "maximum_assistance_level": 2},
-                order_index=1,
-            )
-            session.add(obj_1_5)
-            await session.flush()
+                for lesson_data in unit_data.get("lessons", []):
+                    l_res = await session.execute(select(Lesson).where(Lesson.id == lesson_data["id"]))
+                    lesson = l_res.scalars().first()
+                    if not lesson:
+                        lesson = Lesson(
+                            id=lesson_data["id"],
+                            unit_id=unit.id,
+                            title=lesson_data["title"],
+                            description=lesson_data["description"],
+                            order_index=lesson_data["order_index"],
+                        )
+                        session.add(lesson)
+                        await session.flush()
 
-            # Objective 2 (Advanced with prerequisite)
-            obj_1_10 = LearningObjective(
-                lesson_id=lesson_recog.id,
-                title={"en": "Recognize numbers 6–10", "ar": "التعرف على الأرقام ٦-١٠"},
-                description={
-                    "en": "Identify written numerals 6 to 10 and order them progressively.",
-                    "ar": "التعرف على الأرقام المكتوبة من ٦ إلى ١٠ وترتيبها تدريجياً.",
-                },
-                difficulty_level=2,
-                assessment_criteria={"minimum_accuracy": 0.8, "maximum_assistance_level": 1},
-                order_index=2,
-            )
-            session.add(obj_1_10)
-            await session.flush()
+                    for obj_data in lesson_data.get("learning_objectives", []):
+                        o_res = await session.execute(select(LearningObjective).where(LearningObjective.id == obj_data["id"]))
+                        objective = o_res.scalars().first()
+                        if not objective:
+                            objective = LearningObjective(
+                                id=obj_data["id"],
+                                lesson_id=lesson.id,
+                                title=obj_data["title"],
+                                description=obj_data["description"],
+                                difficulty_level=obj_data["difficulty_level"],
+                                assessment_criteria=obj_data["assessment_criteria"],
+                                order_index=obj_data["order_index"],
+                                is_active=obj_data.get("is_active", True),
+                            )
+                            session.add(objective)
+                            seeded_objs_count += 1
 
-            # Link prerequisite
-            await session.execute(
-                objective_prerequisites.insert().values(
-                    objective_id=obj_1_10.id, prerequisite_id=obj_1_5.id
+                        for prereq_id in obj_data.get("prerequisites", []):
+                            prereq_links.append((obj_data["id"], prereq_id))
+
+        await session.flush()
+        print(f"Curriculum objectives seeded: {seeded_objs_count} new objectives.")
+
+        # Seed Prerequisites idempotently
+        for target_id, prereq_id in prereq_links:
+            # Check if pair already exists
+            existing_p = await session.execute(
+                select(objective_prerequisites).where(
+                    objective_prerequisites.c.objective_id == target_id,
+                    objective_prerequisites.c.prerequisite_id == prereq_id,
                 )
             )
+            if not existing_p.first():
+                await session.execute(
+                    objective_prerequisites.insert().values(
+                        objective_id=target_id,
+                        prerequisite_id=prereq_id,
+                    )
+                )
 
-            print("Created demonstration curriculum hierarchy with prerequisites.")
-        else:
-            print("Demonstration curriculum already exists. Skipping.")
+        await session.flush()
+        print(f"Prerequisite relationships linked ({len(prereq_links)} total pairs mapped).")
 
-        # ── 3. Seed Demo Learner & Profile ───────────────────────────────────
+        # ── 3. Seed Content Bank Items ─────────────────────────────────────────
+        seeded_content_count = 0
+        for item in ALL_CONTENT_ITEMS:
+            c_res = await session.execute(select(ContentItem).where(ContentItem.id == item.id))
+            if not c_res.scalars().first():
+                content_row = ContentItem(
+                    id=item.id,
+                    objective_id=item.objective_id,
+                    subject_code=item.subject_code,
+                    unit_code=item.unit_code,
+                    content_key=item.content_key,
+                    difficulty_level=item.difficulty_level,
+                    supported_modalities=item.supported_modalities,
+                    prompt=item.prompt,
+                    content_payload=item.content_payload,
+                    correct_answer=item.correct_answer,
+                    hints=item.hints,
+                    metadata_info=item.metadata_info,
+                    is_active=item.is_active,
+                )
+                session.add(content_row)
+                seeded_content_count += 1
+
+        await session.flush()
+        print(f"Content Bank items seeded: {seeded_content_count} new authoritative content items.")
+
+        # ── 4. Seed Demo Learner & Profile ───────────────────────────────────
         learner_name = "Tariq Al-Mansoor"
         result = await session.execute(select(Learner).where(Learner.name == learner_name))
         existing_learner = result.scalars().first()
@@ -223,7 +269,7 @@ async def seed_demo_data() -> None:
 
         await session.commit()
     await engine.dispose()
-    print("Demo data seeding completed successfully.")
+    print("Full demo and curriculum data seeding completed successfully.")
 
 
 if __name__ == "__main__":

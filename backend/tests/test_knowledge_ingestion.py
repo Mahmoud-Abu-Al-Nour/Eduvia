@@ -112,3 +112,19 @@ class TestKnowledgeIngestionService:
         assert result.total_documents_scanned == 0
         assert len(result.errors) == 1
         assert "not found" in result.errors[0]
+
+    @pytest.mark.asyncio
+    async def test_ingest_expanded_knowledge_base_sources(
+        self, mock_ingestion_service: KnowledgeIngestionService
+    ) -> None:
+        """Verify the actual repository knowledge_base/sources parses and indexes all categories."""
+        kb_path = Path(__file__).resolve().parent.parent.parent / "knowledge_base" / "sources"
+        if not kb_path.exists():
+            pytest.skip("knowledge_base/sources directory not found relative to test")
+
+        result = await mock_ingestion_service.ingest_sources_directory(sources_dir=kb_path)
+        assert result.total_documents_scanned >= 15
+        assert result.total_documents_ingested >= 15
+        assert result.total_chunks_indexed >= 40
+        assert len(result.errors) == 0
+

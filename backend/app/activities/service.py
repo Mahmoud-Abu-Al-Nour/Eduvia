@@ -181,6 +181,25 @@ class ActivityService:
                 except Exception as rag_err:
                     logger.warning("rag_retrieval_skipped_in_generation", error=str(rag_err))
 
+                # Fetch authoritative content item grounding from ContentBank
+                authoritative_content_payload = None
+                try:
+                    from app.content.bank import get_content_bank
+                    bank = get_content_bank()
+                    content_item = bank.get_by_objective(
+                        request.objective_id,
+                        target_activity_type,
+                        effective_difficulty,
+                    )
+                    if content_item:
+                        authoritative_content_payload = {
+                            "prompt": content_item.get_prompt(request.language),
+                            "correct_answer": content_item.correct_answer,
+                            "content_payload": content_item.content_payload,
+                        }
+                except Exception as content_bank_err:
+                    logger.warning("content_bank_lookup_skipped", error=str(content_bank_err))
+
                 messages = build_activity_generation_messages(
                     objective_title=objective_title,
                     objective_description=objective_desc,
@@ -190,6 +209,7 @@ class ActivityService:
                     learner_context=learner_context,
                     language=request.language,
                     grounding_chunks=grounding_chunks,
+                    authoritative_content=authoritative_content_payload,
                 )
 
                 # Generate structured output conforming to Activity JSON schema

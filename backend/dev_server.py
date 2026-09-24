@@ -91,86 +91,51 @@ demo_admin = User(
     updated_at=now,
 )
 
-# Demo Curriculum Tree matching seed_demo_data.py
-curr_id = uuid.UUID("33333333-3333-3333-3333-333333333333")
+from app.curriculum.curriculum_catalog import (
+    CURRICULUM_DESCRIPTION,
+    CURRICULUM_ID,
+    CURRICULUM_TITLE,
+    CURRICULUM_VERSION,
+    FULL_CURRICULUM_CATALOG,
+)
+
+# Build full lookup maps from FULL_CURRICULUM_CATALOG
+_SUBJECTS_MAP: dict[uuid.UUID, dict[str, Any]] = {s["id"]: s for s in FULL_CURRICULUM_CATALOG}
+_UNITS_MAP: dict[uuid.UUID, dict[str, Any]] = {}
+_LESSONS_MAP: dict[uuid.UUID, dict[str, Any]] = {}
+_OBJECTIVES_MAP: dict[uuid.UUID, dict[str, Any]] = {}
+
+for s in FULL_CURRICULUM_CATALOG:
+    for u in s.get("units", []):
+        _UNITS_MAP[u["id"]] = u
+        for l in u.get("lessons", []):
+            _LESSONS_MAP[l["id"]] = l
+            for o in l.get("learning_objectives", []):
+                _OBJECTIVES_MAP[o["id"]] = o
+
+# Standard IDs matching catalog and legacy tests
+curr_id = CURRICULUM_ID
 subj_id = uuid.UUID("44444444-4444-4444-4444-444444444444")
 unit_id = uuid.UUID("55555555-5555-5555-5555-555555555555")
 less_id = uuid.UUID("66666666-6666-6666-6666-666666666666")
 obj1_id = uuid.UUID("77777777-7777-7777-7777-777777777777")
 obj2_id = uuid.UUID("88888888-8888-8888-8888-888888888888")
 
-obj1_dict: dict[str, Any] = {
-    "id": obj1_id,
-    "lesson_id": less_id,
-    "title": {"en": "Recognize numbers 1–5", "ar": "التعرف على الأرقام ١-٥"},
-    "description": {
-        "en": "Identify written numerals 1 to 5 and match to dot patterns.",
-        "ar": "التعرف على الأرقام المكتوبة من ١ إلى ٥ ومطابقتها مع أنماط النقاط.",
-    },
-    "difficulty_level": 1,
-    "assessment_criteria": {"minimum_accuracy": 0.8, "maximum_assistance_level": 2},
-    "order_index": 1,
-    "is_active": True,
-    "prerequisites": [],
-}
-
-obj2_dict: dict[str, Any] = {
-    "id": obj2_id,
-    "lesson_id": less_id,
-    "title": {"en": "Recognize numbers 6–10", "ar": "التعرف على الأرقام ٦-١٠"},
-    "description": {
-        "en": "Identify written numerals 6 to 10 and order them progressively.",
-        "ar": "التعرف على الأرقام المكتوبة من ٦ إلى ١٠ وترتيبها تدريجياً.",
-    },
-    "difficulty_level": 2,
-    "assessment_criteria": {"minimum_accuracy": 0.8, "maximum_assistance_level": 1},
-    "order_index": 2,
-    "is_active": True,
-    "prerequisites": [obj1_dict],
-}
-
-lesson_dict: dict[str, Any] = {
-    "id": less_id,
-    "unit_id": unit_id,
-    "title": {"en": "Number Recognition 1–10", "ar": "التعرف على الأرقام من ١ إلى ١٠"},
-    "description": {"en": "Identifying digits visually and mapping them to quantities.", "ar": "التعرف البصري على الأرقام وربطها بالكميات."},
-    "order_index": 1,
-    "learning_objectives": [obj1_dict, obj2_dict],
-}
-
-unit_dict: dict[str, Any] = {
-    "id": unit_id,
-    "subject_id": subj_id,
-    "title": {"en": "Number Sense & Counting", "ar": "الحس العددي والعد"},
-    "description": {"en": "Understanding discrete quantities and numerical representations.", "ar": "فهم الكميات المنفصلة والتمثيلات العددية."},
-    "order_index": 1,
-    "lessons": [lesson_dict],
-}
-
-subject_dict: dict[str, Any] = {
-    "id": subj_id,
-    "curriculum_id": curr_id,
-    "title": {"en": "Foundational Mathematics", "ar": "أساسيات الرياضيات"},
-    "description": {"en": "Basic mathematical reasoning, pattern recognition, and number sense.", "ar": "التفكير الرياضي الأساسي، التعرف على الأنماط، والحس العددي."},
-    "order_index": 1,
-    "units": [unit_dict],
-}
-
 curriculum_full_dict: dict[str, Any] = {
-    "id": curr_id,
-    "title": {"en": "Eduvia Demonstration Curriculum", "ar": "منهج إدوفيا التجريبي"},
-    "description": {"en": "A standardized demonstration curriculum for inclusive numeracy.", "ar": "منهج تجريبي معياري لتطوير مهارات الحساب الشاملة."},
-    "version": "demo-1.0",
+    "id": CURRICULUM_ID,
+    "title": CURRICULUM_TITLE,
+    "description": CURRICULUM_DESCRIPTION,
+    "version": CURRICULUM_VERSION,
     "is_active": True,
     "created_by_id": admin_id,
-    "subjects": [subject_dict],
+    "subjects": FULL_CURRICULUM_CATALOG,
 }
 
 curriculum_summary_dict: dict[str, Any] = {
-    "id": curr_id,
-    "title": curriculum_full_dict["title"],
-    "description": curriculum_full_dict["description"],
-    "version": curriculum_full_dict["version"],
+    "id": CURRICULUM_ID,
+    "title": CURRICULUM_TITLE,
+    "description": CURRICULUM_DESCRIPTION,
+    "version": CURRICULUM_VERSION,
     "is_active": True,
     "created_by_id": admin_id,
 }
@@ -201,31 +166,21 @@ class MockCurriculumService:
         return [curriculum_summary_dict]
 
     async def get_by_id(self, cid: uuid.UUID) -> dict[str, Any] | None:
-        if cid == curr_id:
+        if cid == CURRICULUM_ID or cid == curr_id:
             return curriculum_full_dict
         return None
 
     async def get_subject(self, sid: uuid.UUID) -> dict[str, Any] | None:
-        if sid == subj_id:
-            return subject_dict
-        return None
+        return _SUBJECTS_MAP.get(sid)
 
     async def get_unit(self, uid: uuid.UUID) -> dict[str, Any] | None:
-        if uid == unit_id:
-            return unit_dict
-        return None
+        return _UNITS_MAP.get(uid)
 
     async def get_lesson(self, lid: uuid.UUID) -> dict[str, Any] | None:
-        if lid == less_id:
-            return lesson_dict
-        return None
+        return _LESSONS_MAP.get(lid)
 
     async def get_learning_objective(self, oid: uuid.UUID) -> dict[str, Any] | None:
-        if oid == obj1_id:
-            return obj1_dict
-        if oid == obj2_id:
-            return obj2_dict
-        return None
+        return _OBJECTIVES_MAP.get(oid)
 
 
 # Demo Learner fixture matching seed_demo_data.py
