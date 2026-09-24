@@ -262,10 +262,12 @@ class GeminiProvider(LLMProvider):
                 passage_count=len(texts),
             )
 
+            embed_config = {"output_dimensionality": 768}
             if hasattr(client, "aio") and hasattr(client.aio, "models"):
                 resp = await client.aio.models.embed_content(
                     model=self._embedding_model,
                     contents=texts,
+                    config=embed_config,
                 )
             else:
                 resp = await asyncio.get_event_loop().run_in_executor(
@@ -273,6 +275,7 @@ class GeminiProvider(LLMProvider):
                     lambda: client.models.embed_content(
                         model=self._embedding_model,
                         contents=texts,
+                        config=embed_config,
                     ),
                 )
 
