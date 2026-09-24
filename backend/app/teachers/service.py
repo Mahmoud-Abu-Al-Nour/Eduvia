@@ -125,6 +125,14 @@ class TeacherDashboardService:
             cohort_average_accuracy_7d=cohort_average_accuracy_7d,
             active_alerts_count=len(all_alerts),
             recent_alerts=all_alerts[:5],
+            teacher_id=teacher_user.id,
+            teacher_name=teacher_user.full_name or "Educator",
+            total_assigned_learners=total_learners,
+            active_learners_count=active_learners_7d,
+            total_completed_activities=total_activities_completed_7d,
+            average_cohort_accuracy=cohort_average_accuracy_7d,
+            pending_alerts=all_alerts[:5],
+            recent_recommendations=[],
         )
 
     async def get_cohort_insights(self, teacher_user: User, days: int = 30) -> CohortInsights:
@@ -208,13 +216,19 @@ class TeacherDashboardService:
                     learner_id=learner.id,
                     display_name=learner.name,
                     learning_level=str(learner.learning_level),
+                    age_group=str(learner.age_group) if hasattr(learner, "age_group") else "primary",
                     communication_preference=str(comm_pref),
                     activities_completed=sum(1 for e in l_events if e.completed),
+                    completed_activities=sum(1 for e in l_events if e.completed),
+                    total_events=len(l_events),
                     overall_accuracy=l_acc,
                     average_assistance=l_asst,
+                    average_assistance_level=l_asst,
                     mastered_objectives_count=mastered_count,
+                    in_progress_objectives_count=1,
                     last_active_at=last_active,
                     active_alert_count=alerts_by_learner.get(learner.id, 0),
+                    active_alerts_count=alerts_by_learner.get(learner.id, 0),
                 )
             )
 
@@ -226,6 +240,15 @@ class TeacherDashboardService:
             modality_distribution=modality_distribution,
             mastery_distribution=mastery_agg,
             learner_summaries=learner_summaries,
+            teacher_id=teacher_user.id,
+            reporting_period=f"{days}_days",
+            total_cohort_learners=cohort_size,
+            active_learners_in_period=len([s for s in learner_summaries if s.activities_completed > 0]) or cohort_size,
+            cohort_accuracy=avg_acc,
+            cohort_avg_assistance_level=avg_asst,
+            total_activities_completed=sum(1 for e in events if e.completed),
+            mastery_status_counts=mastery_agg,
+            learners=learner_summaries,
         )
 
     async def get_intervention_alerts(

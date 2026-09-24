@@ -18,11 +18,15 @@ import tokenStorage from './tokenStorage'
 
 // ── Axios Instance ────────────────────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const RAW_BASE_URL = import.meta.env.VITE_API_BASE_URL
+// Use Vite reverse-proxy path (/api/v1) when in dev mode or fallback to IPv4 loopback
+const API_BASE_URL = RAW_BASE_URL === '' || RAW_BASE_URL === undefined
+  ? ''
+  : RAW_BASE_URL.replace('localhost', '127.0.0.1')
 const API_V1_PREFIX = '/api/v1'
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}${API_V1_PREFIX}`,
+  baseURL: API_BASE_URL ? `${API_BASE_URL}${API_V1_PREFIX}` : API_V1_PREFIX,
   timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
@@ -48,7 +52,9 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+
+    if (status === 401) {
       // Auth token expired / invalid — clear canonical tokens via tokenStorage
       tokenStorage.clearTokens()
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -56,19 +62,32 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Normalize error message from backend error schema
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.detail ||
-      error.message ||
-      'An unexpected error occurred'
+    // Distinguish specific HTTP status classes per Phase 18 requirements
+    let message = error.response?.data?.message || error.response?.data?.detail
+    if (!message) {
+      if (status === 404) {
+        message = 'Requested educational resource or endpoint was not found.'
+      } else if (status === 403) {
+        message = 'You do not have permission to access this educational resource.'
+      } else if (status === 401) {
+        message = 'Your session has expired. Please sign in again.'
+      } else if (status === 422) {
+        message = 'The provided data could not be validated by the server.'
+      } else if (status && status >= 500) {
+        message = 'The backend server encountered an error. Please try again shortly.'
+      } else if (!error.response) {
+        message = 'Unable to connect to the backend server. Please verify the API is running.'
+      } else {
+        message = error.message || 'An unexpected error occurred'
+      }
+    }
 
     const normalizedError = new Error(message) as Error & {
       code?: string
       status?: number
     }
-    normalizedError.code = error.response?.data?.error
-    normalizedError.status = error.response?.status
+    normalizedError.code = error.response?.data?.error || (status ? `HTTP_${status}` : 'NETWORK_ERROR')
+    normalizedError.status = status
 
     return Promise.reject(normalizedError)
   },
@@ -251,23 +270,23 @@ export const recommendationsApi = {
 export const teachersApi = {
   /** Get teacher overview metrics and active alerts */
   getDashboardOverview: () =>
-    get<import('@/types').TeacherDashboardOverview>('/teacher/dashboard'),
+    get<import('@/types').TeacherDashboardOverview>('/teachers/dashboard'),
 
   /** Get classroom / cohort aggregated performance insights */
   getCohortInsights: (days?: number) =>
-    get<import('@/types').CohortInsights>('/teacher/cohort/insights', {
+    get<import('@/types').CohortInsights>('/teachers/cohort/insights', {
       params: days ? { days } : undefined,
     }),
 
   /** Get intervention alerts for assigned learners */
   getAlerts: (includeResolved: boolean = false) =>
-    get<import('@/types').InterventionAlert[]>('/teacher/alerts', {
+    get<import('@/types').InterventionAlert[]>('/teachers/alerts', {
       params: { include_resolved: includeResolved },
     }),
 
   /** Get Individualized Education Plan (IEP) progress report */
   getIEPReport: (learnerId: string, days?: number) =>
-    get<import('@/types').IEPReport>(`/teacher/learners/${learnerId}/iep-report`, {
+    get<import('@/types').IEPReport>(`/teachers/learners/${learnerId}/iep-report`, {
       params: days ? { days } : undefined,
     }),
 }

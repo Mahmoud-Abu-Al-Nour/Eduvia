@@ -45,5 +45,6 @@ api_router.include_router(analytics_router)
 api_router.include_router(recommendations_router)
 
 # ── Teacher Dashboard & Insights (Phase 10) ───────────────────────────────────
-api_router.include_router(teachers_router)
+api_router.include_router(teachers_router, prefix="/teachers")
+api_router.include_router(teachers_router, prefix="/teacher")
 

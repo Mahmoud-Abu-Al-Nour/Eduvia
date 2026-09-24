@@ -916,11 +916,20 @@ class MockTeacherDashboardService:
             cohort_average_accuracy_7d=avg_acc,
             active_alerts_count=len(alerts),
             recent_alerts=alerts[:5],
+            teacher_id=teacher_user.id if teacher_user else teacher_id,
+            teacher_name=teacher_user.full_name if (teacher_user and teacher_user.full_name) else "Alice Teacher",
+            total_assigned_learners=len(learners),
+            active_learners_count=active_count,
+            total_completed_activities=completed_count,
+            average_cohort_accuracy=avg_acc,
+            pending_alerts=alerts[:5],
+            recent_recommendations=[],
         )
 
     async def get_cohort_insights(self, teacher_user: User | None = None, days: int = 30) -> CohortInsights:
         learners = list(in_memory_learners.values())
         events = _MOCK_ANALYTICS_INSTANCE.events
+        completed_count = sum(1 for e in events if e.completed)
         avg_acc = round(sum(1 for e in events if e.correct) / len(events), 2) if events else 0.85
         avg_asst = round(sum(e.assistance_level for e in events) / len(events), 2) if events else 0.8
         modality_distribution = {"visual": 0.45, "interactive": 0.30, "audio": 0.15, "reading": 0.10}
@@ -931,18 +940,29 @@ class MockTeacherDashboardService:
             l_events = [e for e in events if e.learner_id == l.id]
             l_acc = round(sum(1 for e in l_events if e.correct) / len(l_events), 2) if l_events else 0.85
             l_asst = round(sum(e.assistance_level for e in l_events) / len(l_events), 2) if l_events else 0.7
+            comm_pref = "verbal"
+            if hasattr(l, "profile") and l.profile and l.profile.communication_preferences:
+                comm_pref = l.profile.communication_preferences.get("primary_mode", "verbal")
+
+            learner_name = getattr(l, "name", "Tariq Al-Mansoor")
             learner_summaries.append(
                 CohortLearnerSummary(
                     learner_id=l.id,
-                    display_name=l.display_name,
+                    display_name=learner_name,
                     learning_level=l.learning_level.value if hasattr(l.learning_level, "value") else str(l.learning_level),
-                    communication_preference=l.communication_preference.value if hasattr(l.communication_preference, "value") else str(l.communication_preference),
+                    age_group=l.age_group.value if hasattr(l.age_group, "value") else str(l.age_group),
+                    communication_preference=str(comm_pref),
                     activities_completed=sum(1 for e in l_events if e.completed),
+                    completed_activities=sum(1 for e in l_events if e.completed),
+                    total_events=len(l_events),
                     overall_accuracy=l_acc,
                     average_assistance=l_asst,
+                    average_assistance_level=l_asst,
                     mastered_objectives_count=1,
+                    in_progress_objectives_count=1,
                     last_active_at=l_events[-1].timestamp if l_events else now,
                     active_alert_count=0,
+                    active_alerts_count=0,
                 )
             )
 
@@ -954,6 +974,15 @@ class MockTeacherDashboardService:
             modality_distribution=modality_distribution,
             mastery_distribution=mastery_distribution,
             learner_summaries=learner_summaries,
+            teacher_id=teacher_user.id if teacher_user else teacher_id,
+            reporting_period=f"{days}_days",
+            total_cohort_learners=len(learners),
+            active_learners_in_period=len(learners),
+            cohort_accuracy=avg_acc,
+            cohort_avg_assistance_level=avg_asst,
+            total_activities_completed=completed_count,
+            mastery_status_counts=mastery_distribution,
+            learners=learner_summaries,
         )
 
     async def get_intervention_alerts(
@@ -966,17 +995,23 @@ class MockTeacherDashboardService:
         alerts = []
         if learners:
             target = learners[0]
+            target_name = getattr(target, "name", "Tariq Al-Mansoor")
             alerts.append(
                 InterventionAlert(
                     alert_id=f"alert_demo_{target.id}",
                     learner_id=target.id,
-                    learner_display_name=target.name,
+                    learner_display_name=target_name,
                     trigger_type=AlertTriggerType.high_assistance,
                     severity=AlertSeverity.warning,
                     message="Learner required Level 2 assistance across 3 consecutive matching attempts.",
+                    summary="Learner required Level 2 assistance across 3 consecutive matching attempts.",
                     recommended_action="Introduce multi-sensory visual cues or reduce target distractor count.",
+                    recommended_pedagogical_action="Introduce multi-sensory visual cues or reduce target distractor count.",
                     evidence_context={"average_assistance": 2.0, "attempts": 3},
+                    evidence_metrics={"average_assistance": 2.0, "attempts": 3},
                     detected_at=now,
+                    created_at=now,
+                    is_resolved=False,
                 )
             )
         return alerts
@@ -1080,5 +1115,5 @@ patch("app.users.router.UserService", return_value=MockUserService()).start()
 patch("app.auth.dependencies.UserService", return_value=MockUserService()).start()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
 

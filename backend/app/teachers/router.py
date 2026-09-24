@@ -23,7 +23,7 @@ from app.teachers.schemas import (
 from app.teachers.service import TeacherDashboardService
 from app.users.models import User
 
-router = APIRouter(prefix="/teachers", tags=["teachers"])
+router = APIRouter(tags=["teachers"])
 
 
 def get_teacher_dashboard_service(session: SessionDep) -> TeacherDashboardService:

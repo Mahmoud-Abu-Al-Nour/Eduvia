@@ -69,10 +69,13 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
 
   if (error || !overview) {
     return (
-      <Card className="border-rose-200 bg-rose-50/50 p-6 text-center" role="alert">
+      <Card className="border-rose-200 bg-rose-50/50 p-8 text-center max-w-lg mx-auto" role="alert">
         <AlertTriangle className="w-10 h-10 text-rose-600 mx-auto mb-3" />
-        <h3 className="text-base font-semibold text-rose-900 mb-1">Dashboard Loading Error</h3>
-        <p className="text-xs text-rose-700 max-w-md mx-auto mb-4">{error || "Unable to retrieve dashboard metrics."}</p>
+        <h3 className="text-base font-semibold text-rose-900 mb-1">Dashboard Unavailable</h3>
+        <p className="text-xs text-rose-700 max-w-md mx-auto mb-4">
+          We couldn&apos;t load the latest classroom overview.
+          {error && <span className="block text-[11px] text-rose-600/80 mt-1 font-mono">{error}</span>}
+        </p>
         <Button
           onClick={() => void loadDashboard()}
           variant="destructive"
@@ -80,13 +83,14 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
           className="mx-auto"
         >
           <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-          Retry Connection
+          Try Again
         </Button>
       </Card>
     );
   }
 
-  const filteredAlerts = overview.pending_alerts.filter((alert) => {
+  const alertsList = overview.pending_alerts || overview.recent_alerts || [];
+  const filteredAlerts = alertsList.filter((alert: any) => {
     if (alertFilter === "all") return true;
     return alert.severity === alertFilter;
   });
@@ -182,7 +186,7 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-slate-900">
-                {(overview.average_cohort_accuracy * 100).toFixed(0)}%
+                {(((overview.average_cohort_accuracy ?? overview.cohort_average_accuracy_7d) || 0) * 100).toFixed(0)}%
               </span>
               <span className="text-xs text-slate-500 font-medium">mean</span>
             </div>
@@ -197,13 +201,13 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Pedagogical Alerts
               </span>
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${overview.pending_alerts.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${alertsList.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
                 <ShieldAlert className="w-4 h-4" />
               </div>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-slate-900">{overview.pending_alerts.length}</span>
-              {overview.pending_alerts.length > 0 && (
+              <span className="text-3xl font-bold text-slate-900">{alertsList.length}</span>
+              {alertsList.length > 0 && (
                 <Badge variant="warning" className="text-[10px]">
                   Action suggested
                 </Badge>
@@ -272,7 +276,7 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
                   : "secondary";
 
               return (
-                <div key={alert.id} className="p-5 hover:bg-slate-50/60 transition-colors">
+                <div key={alert.id || alert.alert_id} className="p-5 hover:bg-slate-50/60 transition-colors">
                   <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -285,19 +289,19 @@ export const TeacherOverview: React.FC<TeacherOverviewProps> = ({
                         </span>
                         <span className="text-xs text-slate-300">•</span>
                         <span className="text-[11px] text-slate-500 font-medium">
-                          Window: {alert.evidence_window}
+                          Window: {alert.evidence_window || "Last 7 days"}
                         </span>
                       </div>
 
                       <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                        {alert.summary}
+                        {alert.summary || alert.message}
                       </p>
 
                       <div className="bg-brand-50/60 border border-brand-100 rounded-lg p-2.5 text-xs text-brand-950 flex items-start gap-2">
                         <Info className="w-3.5 h-3.5 text-brand-800 mt-0.5 shrink-0" />
                         <div>
                           <strong className="font-semibold text-brand-900">Pedagogical Recommendation:</strong>{" "}
-                          <span className="text-brand-950">{alert.recommended_pedagogical_action}</span>
+                          <span className="text-brand-950">{alert.recommended_pedagogical_action || alert.recommended_action}</span>
                         </div>
                       </div>
                     </div>

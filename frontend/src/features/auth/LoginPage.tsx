@@ -76,15 +76,16 @@ export const LoginPage: React.FC = () => {
           Back to Eduvia overview
         </Link>
 
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-brand-800 text-white flex items-center justify-center font-bold text-xl shadow-xs">
-            E
-          </div>
-          <span className="text-2xl font-bold tracking-tight text-slate-900">Eduvia</span>
+        <div className="flex flex-col items-center justify-center mb-4">
+          <img
+            src="/logo.jpg"
+            alt="Eduvia Logo"
+            className="h-14 w-auto object-contain rounded-lg shadow-2xs mb-2"
+          />
+          <p className="text-center text-xs sm:text-sm text-slate-600">
+            Teacher &amp; Administrator Learning Workspace
+          </p>
         </div>
-        <p className="text-center text-sm text-slate-600">
-          Teacher &amp; Administrator Learning Workspace
-        </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

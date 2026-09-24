@@ -56,12 +56,13 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
     }
   };
 
-  const filteredLearners = (insights?.learners || []).filter((l) =>
-    l.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    l.learning_level.toLowerCase().includes(searchQuery.toLowerCase())
-  ).sort((a, b) => {
-    const aVal = a[sortField];
-    const bVal = b[sortField];
+  const rawLearners = insights?.learners || (insights as any)?.learner_summaries || [];
+  const filteredLearners = rawLearners.filter((l: any) =>
+    (l.display_name || l.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (l.learning_level || "").toLowerCase().includes(searchQuery.toLowerCase())
+  ).sort((a: any, b: any) => {
+    const aVal = a[sortField] ?? (sortField === "display_name" ? a.name : undefined);
+    const bVal = b[sortField] ?? (sortField === "display_name" ? b.name : undefined);
     if (aVal === undefined || aVal === null) return 1;
     if (bVal === undefined || bVal === null) return -1;
     if (typeof aVal === "string" && typeof bVal === "string") {
@@ -126,13 +127,13 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
       ) : error || !insights ? (
         <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center" role="alert">
           <AlertTriangle className="w-10 h-10 text-rose-500 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-rose-900 mb-1">Failed to Load Cohort Data</h3>
-          <p className="text-sm text-rose-700 max-w-md mx-auto mb-4">{error || "Data unavailable."}</p>
+          <h3 className="text-lg font-semibold text-rose-900 mb-1">Classroom Cohort Data Unavailable</h3>
+          <p className="text-sm text-rose-700 max-w-md mx-auto mb-4">{error || "We couldn't load the latest cohort analytics. Please retry or check server connection."}</p>
           <button
             onClick={() => void loadCohortInsights()}
             className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium rounded-xl transition-colors focus:ring-2 focus:ring-rose-500 focus:outline-none"
           >
-            Retry
+            Retry Connection
           </button>
         </div>
       ) : (
@@ -333,10 +334,10 @@ export const CohortInsightsView: React.FC<CohortInsightsViewProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredLearners.map((learner) => (
+                    filteredLearners.map((learner: any) => (
                       <tr key={learner.learner_id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="py-3.5 px-4 font-semibold text-gray-900">
-                          {learner.display_name}
+                          {learner.display_name || (learner as any).name}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 capitalize font-medium">

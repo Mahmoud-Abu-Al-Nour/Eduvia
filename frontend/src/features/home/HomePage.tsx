@@ -93,15 +93,16 @@ export const HomePage: React.FC = () => {
       {/* ── Top Navigation Bar ────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-brand-800 text-white flex items-center justify-center font-bold text-lg shadow-xs">
-              E
-            </div>
-            <div>
-              <span className="font-bold text-lg tracking-tight text-slate-900 block leading-tight">Eduvia</span>
+          <Link to="/" className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-700 rounded-lg">
+            <img
+              src="/logo.jpg"
+              alt="Eduvia Logo"
+              className="h-10 w-auto object-contain rounded-md"
+            />
+            <div className="hidden sm:block">
               <span className="text-[11px] font-medium text-slate-500 block leading-none">Adaptive Learning Platform</span>
             </div>
-          </div>
+          </Link>
 
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-600">

@@ -128,14 +128,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
         {/* Brand Header */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200/80">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-800 text-white flex items-center justify-center font-bold text-base shadow-2xs">
-              E
-            </div>
-            <div>
-              <span className="font-bold text-base tracking-tight text-slate-900 leading-none block">
-                Eduvia
-              </span>
-              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider block mt-0.5">
+            <img
+              src="/logo.jpg"
+              alt="Eduvia Logo"
+              className="h-9 w-auto object-contain rounded-md"
+            />
+            <div className="hidden sm:block">
+              <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wider block">
                 Special Ed Platform
               </span>
             </div>

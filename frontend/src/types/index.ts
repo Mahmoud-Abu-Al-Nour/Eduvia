@@ -534,28 +534,38 @@ export type AlertTriggerType =
   | 'inactivity_threshold'
 
 export interface InterventionAlert {
-  id: string
+  id?: string
+  alert_id?: string
   learner_id: string
   learner_display_name: string
-  trigger_type: AlertTriggerType
-  severity: AlertSeverity
-  evidence_window: string
-  summary: string
-  recommended_pedagogical_action: string
-  evidence_metrics: Record<string, unknown>
-  created_at: string
-  is_resolved: boolean
+  trigger_type: AlertTriggerType | string
+  severity: AlertSeverity | string
+  evidence_window?: string
+  summary?: string
+  message?: string
+  recommended_pedagogical_action?: string
+  recommended_action?: string
+  evidence_metrics?: Record<string, unknown>
+  evidence_context?: Record<string, unknown>
+  created_at?: string
+  detected_at?: string
+  is_resolved?: boolean
 }
 
 export interface TeacherDashboardOverview {
-  teacher_id: string
-  teacher_name: string
+  teacher_id?: string
+  teacher_name?: string
   total_assigned_learners: number
+  total_learners?: number
   active_learners_count: number
+  active_learners_7d?: number
   total_completed_activities: number
+  total_activities_completed_7d?: number
   average_cohort_accuracy: number
+  cohort_average_accuracy_7d?: number
   pending_alerts: InterventionAlert[]
-  recent_recommendations: RecommendationDecision[]
+  recent_alerts?: InterventionAlert[]
+  recent_recommendations?: RecommendationDecision[]
 }
 
 export interface CohortLearnerSummary {
