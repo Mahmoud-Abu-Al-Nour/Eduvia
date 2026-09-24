@@ -11,7 +11,7 @@ import os
 import sys
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -1028,14 +1028,18 @@ class MockTeacherDashboardService:
         obj_summaries = [
             IEPObjectiveSummary(
                 objective_id=st.objective_id,
-                title=st.title,
-                attempts_count=st.attempts_count,
+                title=getattr(st, "objective_title", getattr(st, "title", "Objective")),
+                attempts_count=getattr(st, "total_attempts", getattr(st, "attempts_count", 0)),
                 accuracy=st.accuracy,
-                average_assistance=st.average_assistance,
+                average_assistance=getattr(st, "avg_assistance_level", getattr(st, "average_assistance", 0.0)),
                 status=st.status,
             )
             for st in mastery.objectives
         ]
+
+        comm_pref = "verbal"
+        if hasattr(learner, "profile") and learner.profile and hasattr(learner.profile, "communication_preferences") and isinstance(learner.profile.communication_preferences, dict):
+            comm_pref = str(learner.profile.communication_preferences.get("primary_mode", "verbal"))
 
         return IEPReport(
             report_id=f"iep_demo_{target_id}",
@@ -1044,10 +1048,10 @@ class MockTeacherDashboardService:
             start_date=now_dt - timedelta(days=days),
             end_date=now_dt,
             learner_id=target_id,
-            learner_display_name=learner.display_name,
+            learner_display_name=learner.name,
             learning_level=learner.learning_level.value if hasattr(learner.learning_level, "value") else str(learner.learning_level),
-            communication_preference=learner.communication_preference.value if hasattr(learner.communication_preference, "value") else str(learner.communication_preference),
-            teacher_notes=learner.teacher_notes,
+            communication_preference=comm_pref,
+            teacher_notes="Demonstrates strong engagement with visual and interactive activities.",
             total_activities_attempted=summary.completed_activities,
             overall_accuracy=summary.overall_accuracy,
             overall_assistance_average=summary.avg_assistance_level,
@@ -1057,7 +1061,7 @@ class MockTeacherDashboardService:
                 "Continue strong emphasis on visual-first presentation modalities.",
                 "Maintain progressive scaffolding to encourage autonomous completion.",
             ],
-            printable_summary_markdown=f"# IEP Progress Report: {learner.display_name}\n\n- **Overall Accuracy**: {summary.overall_accuracy * 100:.1f}%\n- **Average Assistance**: {summary.avg_assistance_level:.1f}\n",
+            printable_summary_markdown=f"# IEP Progress Report: {learner.name}\n\n- **Overall Accuracy**: {summary.overall_accuracy * 100:.1f}%\n- **Average Assistance**: {summary.avg_assistance_level:.1f}\n",
         )
 
 

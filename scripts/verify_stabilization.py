@@ -157,9 +157,19 @@ def main():
             req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/recommendations/learners/{learner_id}", headers=headers)
             res = urllib.request.urlopen(req, timeout=5)
             recs = json.loads(res.read().decode('utf-8'))
-            print(f"[*] GET /api/v1/recommendations/learners/...: Status {res.status} - Recommendations: {len(recs)}")
         except Exception as e:
             print(f"[!] GET /api/v1/recommendations/... FAILED: {e}")
+            return 1
+
+        # 12b. Check IEP Report
+        try:
+            req = urllib.request.Request(f"http://127.0.0.1:8000/api/v1/teachers/learners/{learner_id}/iep-report?days=30", headers=headers)
+            res = urllib.request.urlopen(req, timeout=5)
+            iep = json.loads(res.read().decode('utf-8'))
+            print(f"[*] GET /api/v1/teachers/learners/.../iep-report: Status {res.status} - Report ID: {iep.get('report_id')}")
+            assert iep.get('learner_display_name') == "Tariq Al-Mansoor"
+        except Exception as e:
+            print(f"[!] GET /api/v1/teachers/learners/.../iep-report FAILED: {e}")
             return 1
 
     # 13. Test Vite Proxy (port 5173 -> 8000)
