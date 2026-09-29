@@ -294,6 +294,35 @@ export const teachersApi = {
     }),
 }
 
+/** Instructional Content API endpoints (Explanation & Modeling) */
+export const instructionalApi = {
+  /** Generate instructional content for an objective (Teacher) */
+  generate: (data: import('@/types').InstructionalGenerateRequest) =>
+    post<import('@/types').InstructionalGenerateResponse>('/instructional-content/generate', data),
+
+  /** Get single instructional content item */
+  getById: (contentId: string) =>
+    get<import('@/types').InstructionalContent>(`/instructional-content/${contentId}`),
+
+  /** Get instructional content for an objective (Learners & Teachers) */
+  getByObjective: (objectiveId: string, publishedOnly: boolean = true) =>
+    get<import('@/types').InstructionalContent[]>(`/instructional-content/objective/${objectiveId}`, {
+      params: { published_only: publishedOnly },
+    }),
+
+  /** Update instructional content (Teacher edit) */
+  update: (contentId: string, data: import('@/types').InstructionalContentUpdate) =>
+    patch<import('@/types').InstructionalContent>(`/instructional-content/${contentId}`, data),
+
+  /** Approve instructional content */
+  approve: (contentId: string) =>
+    post<import('@/types').InstructionalContent>(`/instructional-content/${contentId}/approve`),
+
+  /** Publish instructional content */
+  publish: (contentId: string) =>
+    post<import('@/types').InstructionalContent>(`/instructional-content/${contentId}/publish`),
+}
+
 export const api = {
   get,
   post,
@@ -302,6 +331,7 @@ export const api = {
   delete: del,
   health: healthApi,
   activities: activitiesApi,
+  instructional: instructionalApi,
   analytics: analyticsApi,
   recommendations: recommendationsApi,
   teachers: teachersApi,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
 import {
   BookOpen,
@@ -13,8 +14,11 @@ import {
   X,
   ChevronRight,
   ShieldCheck,
+  Lightbulb,
+  FlaskConical,
 } from "lucide-react";
 import { CurriculumBrowser, TeacherActivityGenerator } from "@/features/curriculum";
+import { TeacherInstructionalContent } from "@/features/instructional";
 import { LearnerManager } from "@/features/learners/LearnerManager";
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
 import { RecommendationCard } from "@/features/recommendations";
@@ -34,6 +38,7 @@ interface DashboardPageProps {
 const TABS = [
   { id: "overview", label: "Overview", icon: BarChart3, description: "Daily classroom briefing & intervention alerts" },
   { id: "cohort", label: "Classroom Cohort", icon: GraduationCap, description: "Cohort learning progress & distribution" },
+  { id: "instructional", label: "Instructional Studio", icon: Lightbulb, description: "Create, review & approve conceptual explanations" },
   { id: "activities", label: "Activities & Practice", icon: PlayCircle, description: "Calibrated multi-sensory learner practice" },
   { id: "curriculum", label: "Curriculum", icon: BookOpen, description: "Standardized objectives & structured milestones" },
   { id: "learners", label: "Learners", icon: Users, description: "Individual learner profiles & sensory profiles" },
@@ -42,16 +47,16 @@ const TABS = [
 ];
 
 const CURRICULUM_OBJECTIVES = [
-  { id: "math-num-01", title: "Count objects from 0–10", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Counting & Cardinality" },
-  { id: "math-num-02", title: "Compare quantities (more, less, equal)", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Comparing Sets" },
-  { id: "math-num-03", title: "Addition within 10 using concrete objects", subject: "Mathematics", unit: "Operations & Algebraic Thinking", lesson: "Basic Addition" },
-  { id: "math-num-04", title: "Subtraction within 10 using visual models", subject: "Mathematics", unit: "Operations & Algebraic Thinking", lesson: "Basic Subtraction" },
-  { id: "math-num-05", title: "Order numbers from 0 to 20", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Sequencing" },
-  { id: "lit-let-01", title: "Identify uppercase and lowercase letters", subject: "Language Arts", unit: "Phonological Awareness", lesson: "Alphabet Recognition" },
-  { id: "lit-pho-01", title: "Match beginning sounds to letters", subject: "Language Arts", unit: "Phonics", lesson: "Initial Phonemes" },
-  { id: "lit-wor-01", title: "Read basic CVC words with visual support", subject: "Language Arts", unit: "Reading", lesson: "Word Families" },
-  { id: "daily-rou-01", title: "Sequence daily morning routine tasks", subject: "Daily Living Skills", unit: "Executive Functioning", lesson: "Routines" },
-  { id: "sensory-col-01", title: "Discriminate primary colors and geometric shapes", subject: "Sensory Development", unit: "Visual Perception", lesson: "Color & Shape" },
+  { id: "77777777-7777-7777-7777-777777777777", title: "Count objects from 0–10", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Counting & Cardinality" },
+  { id: "88888888-8888-8888-8888-888888888888", title: "Compare quantities (more, less, equal)", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Comparing Sets" },
+  { id: "0596bbe4-a070-5f22-b13d-f8563b6d1467", title: "Addition within 10 using concrete objects", subject: "Mathematics", unit: "Operations & Algebraic Thinking", lesson: "Basic Addition" },
+  { id: "74921057-04b5-55ae-b213-cf62a4db44f9", title: "Subtraction within 10 using visual models", subject: "Mathematics", unit: "Operations & Algebraic Thinking", lesson: "Basic Subtraction" },
+  { id: "bb90d5f3-80b9-572e-8179-7a310625a90d", title: "Order numbers from 0 to 20", subject: "Mathematics", unit: "Numbers & Operations", lesson: "Sequencing" },
+  { id: "38e172d6-8616-5012-95d9-75d26a85cb5e", title: "Identify uppercase and lowercase letters", subject: "Language Arts", unit: "Phonological Awareness", lesson: "Alphabet Recognition" },
+  { id: "b9f96769-460f-5262-acd2-53dc770e2a58", title: "Match beginning sounds to letters", subject: "Language Arts", unit: "Phonics", lesson: "Initial Phonemes" },
+  { id: "681528bc-98cb-5867-9794-280c9a0be363", title: "Read basic CVC words with visual support", subject: "Language Arts", unit: "Reading", lesson: "Word Families" },
+  { id: "92ae654b-5a1a-5645-b2e5-e3abf2bd721b", title: "Sequence daily morning routine tasks", subject: "Daily Living Skills", unit: "Executive Functioning", lesson: "Routines" },
+  { id: "f54c5f7f-0add-56f5-9b92-7ef0b84729d9", title: "Discriminate primary colors and geometric shapes", subject: "Sensory Development", unit: "Visual Perception", lesson: "Color & Shape" },
 ];
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "overview" }) => {
@@ -221,6 +226,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
               </div>
             </div>
           </div>
+
+          {user?.role === "admin" && (
+            <>
+              <Link
+                to="/admin"
+                className="flex w-full items-center justify-center px-3 py-2 text-xs font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors border border-amber-200/70 mb-2 gap-1.5"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                <span>Admin Control Center</span>
+              </Link>
+              <Link
+                to="/research"
+                className="flex w-full items-center justify-center px-3 py-2 text-xs font-semibold text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors border border-purple-200/70 mb-2 gap-1.5"
+              >
+                <FlaskConical className="w-3.5 h-3.5 text-purple-600" />
+                <span>Research Sandbox</span>
+              </Link>
+            </>
+          )}
 
           <button
             onClick={logout}
@@ -394,6 +418,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ initialTab = "over
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeTab === "instructional" && (
+            <div className="max-w-6xl">
+              <TeacherInstructionalContent />
             </div>
           )}
 

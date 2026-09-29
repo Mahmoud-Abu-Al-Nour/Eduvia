@@ -110,6 +110,11 @@ class PerformanceEvent(EduviaBase):
         nullable=False,
         index=True,
     )
+    question_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
     attempt_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("activity_attempts.id", ondelete="SET NULL"),

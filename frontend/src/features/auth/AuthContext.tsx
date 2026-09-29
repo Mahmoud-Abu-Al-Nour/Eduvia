@@ -1,14 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/services/api";
 import tokenStorage from "@/services/tokenStorage";
+import type { User } from "@/types";
 
-export interface User {
-  id: string;
-  email: string;
-  full_name: string;
-  role: "admin" | "teacher";
-  is_active: boolean;
-}
+export type { User };
 
 interface AuthContextType {
   user: User | null;

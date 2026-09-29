@@ -6,7 +6,78 @@ This document provides the authoritative technical contract for all five activit
 1. **Authoritative Server Evaluation**: Correctness is **never** evaluated or accepted from the frontend. The learner client submits interaction decisions only (`selected_option_id`, `pairs`, `ordered_ids`, `selected_element_id`, `item_to_zone_mapping`).
 2. **Hidden Answer Keys**: Authoritative answer keys (`correct_answer_id`, `pairs`, `correct_sequence`, `target_id`, `correct_mapping`) are excluded from learner activity payloads where security demands it.
 3. **Accessibility Parity**: All modalities support dual interaction modes: direct pointer/touch interaction and sequential keyboard/switch-accessible interaction.
-4. **Deterministic Fallbacks**: Every objective has a deterministic Content Bank item ensuring the Zero-Strand Guarantee if LLM generation fails or times out.
+4. **Deterministic Fallbacks**: Every objective has deterministic Content Bank items ensuring the Zero-Strand Guarantee if LLM generation fails or times out.
+5. **Multi-Question Container**: Activities contain 3 to 10 questions (default 5), homogeneous in modality by default, with per-question state isolation and full activity submission.
+
+---
+
+## Multi-Question Activity Contract
+
+### Activity Structure
+```json
+{
+  "id": "act-uuid",
+  "objective_id": "obj-uuid",
+  "activity_type": "multiple_choice",
+  "modality": "visual",
+  "difficulty": 2,
+  "instructions": "Answer each question carefully.",
+  "questions": [
+    {
+      "id": "q-1",
+      "question_number": 1,
+      "content": { ... },
+      "question_type": "multiple_choice",
+      "content_source_key": "cnt.math.count_apples_5",
+      "hints": ["Count one by one"],
+      "explanation": "There are 5 apples.",
+      "weight": 1.0
+    },
+    ...
+  ]
+}
+```
+
+### Full Activity Submission Payload
+```json
+{
+  "activity_id": "act-uuid",
+  "questions": [
+    {
+      "question_id": "q-1",
+      "submission": { "selected_option_id": "opt-2" }
+    },
+    {
+      "question_id": "q-2",
+      "submission": { "selected_option_id": "opt-1" }
+    }
+  ]
+}
+```
+
+### Authoritative Evaluation & Aggregate Results
+```json
+{
+  "activity_id": "act-uuid",
+  "is_correct": true,
+  "overall_score": 0.80,
+  "percentage": 80.0,
+  "questions_total": 5,
+  "questions_answered": 5,
+  "questions_correct": 4,
+  "question_results": [
+    {
+      "question_id": "q-1",
+      "is_correct": true,
+      "score": 1.0,
+      "feedback": "Correct!",
+      "details": { ... }
+    }
+  ]
+}
+```
+
+- **Backward Compatibility**: Legacy activities with `content` instead of `questions` are wrapped into a 1-question array. Legacy submissions with `submission: { ... }` are normalized automatically.
 
 ---
 

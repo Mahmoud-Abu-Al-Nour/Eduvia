@@ -77,6 +77,35 @@ Every authoritative item in the database contains:
 
 ---
 
-## 3. Fallback Generation & Zero-Strand Guarantee
-When LLM generation is unavailable or fails schema validation, the system falls back to `ContentBank.create_fallback_activity_for_objective(...)`.
-This guarantees that learners always receive an authentic, educationally sound activity aligned with their target objective, difficulty level, and assigned modality.
+## 3. Multi-Question Activity Assembly & Provenance
+
+To support homogeneous multi-question activities (3–10 questions, default 5), the Content Bank maintains canonical content families for every learning objective across Mathematics, Literacy, and Everyday Learning.
+
+```text
+Learning Objective
+       ↓
+Canonical Content Family
+       ├── Source 1 (e.g. Count 3 apples)
+       ├── Source 2 (e.g. Count 5 stars)
+       ├── Source 3 (e.g. Count 2 birds)
+       ├── Source 4 (e.g. Count 4 fish)
+       └── Source 5 (e.g. Count 6 flowers)
+             ↓
+      Modality Renderer
+       ├── MCQ
+       ├── Matching
+       ├── Ordering
+       ├── Visual Identification
+       └── Drag & Drop
+```
+
+Key guarantees:
+1. **Distinct Items**: Activities assemble 5 distinct source items without repeating the exact same item within an activity.
+2. **Provenance Traceability**: Every question generated or assembled carries `content_source_key` and `objective_id` linking directly to the authoritative content item.
+3. **Cross-Modality Support**: Items support multiple modalities through deterministic modality transformers in `ContentBank.create_question_from_content()`.
+
+---
+
+## 4. Fallback Generation & Zero-Strand Guarantee
+When LLM generation is unavailable or fails schema validation, the system falls back to `ContentBank.assemble_multi_question_activity(...)` or `ContentBank.create_fallback_activity_for_objective(...)`.
+This guarantees that learners always receive an authentic, educationally sound, multi-question activity aligned with their target objective, difficulty level, and assigned modality.

@@ -4,10 +4,31 @@
 
 Eduvia is an adaptive educational web platform designed to support learners with intellectual disabilities and special educational needs.
 
+## Two Separated Learner Experiences
+
+Eduvia provides two clearly separated learner experiences under each Curriculum Objective:
+
+```text
+Curriculum Objective
+        │
+        ├──────────────► Instructional Content
+        │                 - Explanation & modeling (visual, step-by-step, worked example, text)
+        │                 - Non-evaluative: NO score, NO pass/fail, NO mastery decision
+        │                 - Web Speech TTS read-aloud support
+        │                 - Direct seamless transition to "Start Practice"
+        │
+        └──────────────► Practice Activity
+                          - Multi-question interactive practice (3–10 questions, default 5)
+                          - Homogeneous modality per activity
+                          - Per-question authoritative server evaluation & state isolation
+                          - Activity-level aggregate scoring and telemetry
+                          - Feeds Phase 7 mastery and Phase 8 adaptation engines
+```
+
 **Core Principle:**
 ```
-Same Curriculum → Same Learning Objective → Different Delivery Method
-→ Track Performance → Analyze Learning Pattern → Adapt Future Activities
+Same Curriculum → Same Learning Objective → Instructional Content (Modeling)
+→ Practice Activity (Multi-Question) → Track Performance → Analyze Learning Pattern → Adapt Future Activities
 ```
 
 ---
@@ -67,8 +88,9 @@ frontend/src/
 │   ├── dashboard/          Teacher dashboard (Phase 10)
 │   ├── learners/           Learner management (Phase 3)
 │   ├── curriculum/         Curriculum management (Phase 2)
-│   ├── activities/         Activity engine (Phase 4)
-│   ├── learning/           Learner experience (Phase 5)
+│   ├── instructional/      Teacher instructional content studio
+│   ├── activities/         Activity engine & multi-step player (Phase 4)
+│   ├── learning/           Learner experience & instructional viewer (Phase 5)
 │   ├── analytics/          Learning analytics (Phase 7)
 │   └── recommendations/    AI recommendations (Phase 8)
 ├── services/               API client + service layer
@@ -88,17 +110,19 @@ backend/app/
 ├── teachers/               Teacher-specific logic
 ├── learners/               Learner profiles
 ├── curriculum/             Curriculum engine
-├── activities/             Activity management
+├── content/                Authoritative content bank
+├── instructional/          Instructional content service & models
+├── activities/             Multi-question activity management & evaluation
 ├── learning/               Active learning sessions
-├── analytics/              Performance analytics
+├── analytics/              Performance analytics & telemetry
 ├── recommendations/        Strategy recommendations
 ├── ai/
 │   ├── orchestrator/       Central AI coordinator
 │   ├── providers/          LLM provider abstractions
 │   │   ├── base.py         Abstract interface
 │   │   └── gemini.py       Gemini implementation
-│   ├── generation/         Activity generation (Phase 9)
-│   ├── evaluation/         Response evaluation (Phase 9)
+│   ├── generation/         Activity & instructional prompt generation
+│   ├── evaluation/         Modality evaluators
 │   ├── adaptation/         Adaptation logic (Phase 8)
 │   └── strategies/         Strategy selection (Phase 8)
 ├── knowledge/              RAG + Qdrant client
@@ -148,23 +172,63 @@ Retrieved Context Chunks
   Structured Activity JSON
 ```
 
-### Activity Generation Pipeline
+### 1. Multi-Question Activity Generation Pipeline
 
 ```
 Curriculum Objective
       +
-Learner Profile
+Learner Profile / Context
       +
-RAG Knowledge Context
+Phase 8 Constraints (Modality, Difficulty)
+      +
+Content Bank (5+ distinct source items)
+      +
+RAG Pedagogical Context
       ↓
-Gemini Structured Generation
+Gemini Structured Generation (or Content Bank Deterministic Fallback)
       ↓
-Pydantic Schema Validation
+Pydantic Schema Validation (3 <= len(questions) <= 10, default 5)
       ↓
-React Activity Renderer
+Activity Object with questions[]
+      ↓
+Multi-Step Activity Player (React)
+      ↓
+Learner Final Submission (all question answers)
+      ↓
+Authoritative Per-Question Backend Evaluation
+      ↓
+ActivityAttempt & Question-Level Telemetry (No Activity Count Inflation)
 ```
 
-**IMPORTANT:** Gemini generates structured JSON only. It does NOT generate arbitrary HTML or React code.
+### 2. Instructional Content Generation & Workflow Pipeline
+
+```
+Curriculum Objective
+      +
+Explanation Method (visual_explanation | step_by_step | worked_example | text_explanation)
+      +
+Content Bank Authoritative Facts
+      +
+RAG Pedagogical Guidance
+      ↓
+Gemini Structured Generation (or Deterministic Pedagogical Fallback)
+      ↓
+Pydantic Validation -> Status: review_required
+      ↓
+Teacher Studio Review & Editing (/teacher/instructional-content)
+      ↓
+Teacher Approval (status: approved)
+      ↓
+Teacher Publication (status: published)
+      ↓
+Learner Instructional View (/learn/objective/:id/content)
+      ↓
+Non-Evaluative Learning (TTS, Visual Cues, Step-by-Step, Worked Examples)
+      ↓
+Direct Action Button: "Start Practice Activity"
+```
+
+**IMPORTANT:** Gemini generates structured JSON only. It does NOT generate arbitrary HTML or React code. Correctness, scores, and mastery are authoritatively calculated server-side.
 
 ---
 

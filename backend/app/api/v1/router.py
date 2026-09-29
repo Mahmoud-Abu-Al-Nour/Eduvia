@@ -11,8 +11,10 @@ from app.analytics.router import router as analytics_router
 from app.api.v1 import health
 from app.auth.router import router as auth_router
 from app.curriculum.router import router as curriculum_router
+from app.instructional.router import router as instructional_router
 from app.learners.router import router as learners_router
 from app.recommendations.router import router as recommendations_router
+from app.research.router import router as research_router
 from app.teachers.router import router as teachers_router
 from app.users.router import router as users_router
 
@@ -38,6 +40,9 @@ api_router.include_router(learners_router)
 # ── Activities (Phase 4 & 5) ──────────────────────────────────────────────────
 api_router.include_router(activities_router)
 
+# ── Instructional Content ─────────────────────────────────────────────────────
+api_router.include_router(instructional_router)
+
 # ── Analytics & Telemetry (Phase 6 & 7) ───────────────────────────────────────
 api_router.include_router(analytics_router)
 
@@ -48,3 +53,5 @@ api_router.include_router(recommendations_router)
 api_router.include_router(teachers_router, prefix="/teachers")
 api_router.include_router(teachers_router, prefix="/teacher")
 
+# ── Research Mode & Sandbox ───────────────────────────────────────────────────
+api_router.include_router(research_router)

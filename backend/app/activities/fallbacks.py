@@ -40,12 +40,13 @@ def create_fallback_activity(
     activity_type: ActivityType = ActivityType.MULTIPLE_CHOICE,
     language: str = "en",
     item_count: int = 4,
+    question_count: int = 5,
     seed: int = 0,
 ) -> Activity:
     """
-    Generate a robust, deterministic activity guaranteed to validate against Pydantic schemas.
-    Leverages the authoritative ContentBank for real, curriculum-aligned educational content.
-    Supports item_count and seed for variation across regenerations.
+    Generate a robust, deterministic multi-question activity guaranteed to validate against Pydantic schemas.
+    Leverages the authoritative ContentBank canonical family for real, curriculum-aligned educational content.
+    Supports question_count, item_count, and seed for variation across regenerations.
     """
     if not isinstance(activity_type, ActivityType):
         try:
@@ -56,26 +57,16 @@ def create_fallback_activity(
     from app.content.bank import get_content_bank
     bank = get_content_bank()
 
-    # Retrieve all matches and select using seed for variation
-    matching_items = bank.get_all_by_objective(objective_id, activity_type=activity_type)
-    if matching_items:
-        selected_item = matching_items[seed % len(matching_items)]
-        activity = bank.create_activity_from_content(
-            selected_item,
-            target_modality=activity_type,
-            language=language,
-            objective_id=objective_id,
-            difficulty_level=difficulty_level,
-        )
-    else:
-        # Fall back to any objective item or dynamic synthesis
-        activity = bank.create_fallback_activity_for_objective(
-            objective_id=objective_id,
-            objective_title=objective_title,
-            activity_type=activity_type,
-            difficulty_level=difficulty_level,
-            language=language,
-        )
+    activity = bank.assemble_multi_question_activity(
+        objective_id=objective_id,
+        activity_type=activity_type,
+        count=question_count,
+        difficulty_level=difficulty_level,
+        language=language,
+        seed=seed,
+        title=f"{objective_title} — Practice" if objective_title else "Learning Activity",
+        instructions="Answer each question carefully to demonstrate your understanding.",
+    )
 
     if activity.metadata is None:
         activity.metadata = {}

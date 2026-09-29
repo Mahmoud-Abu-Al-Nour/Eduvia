@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Lock, Mail, ShieldAlert, UserCheck } from "lucide-react";
+import { ArrowLeft, FlaskConical, Lock, Mail, ShieldAlert, UserCheck } from "lucide-react";
 
 export const LoginPage: React.FC = () => {
   const { user, login } = useAuth();
@@ -20,8 +20,25 @@ export const LoginPage: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      const from = (location.state as any)?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
+      if (user.role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (user.role === "learner") {
+        navigate("/learner", { replace: true });
+      } else if (user.role === "researcher") {
+        navigate("/research", { replace: true });
+      } else {
+        const from = (location.state as any)?.from?.pathname;
+        const safeTarget =
+          from &&
+          !from.startsWith("/admin") &&
+          !from.startsWith("/learner") &&
+          !from.startsWith("/research") &&
+          from !== "/login" &&
+          from !== "/unauthorized"
+            ? from
+            : "/dashboard";
+        navigate(safeTarget, { replace: true });
+      }
     }
   }, [user, navigate, location]);
 
@@ -44,9 +61,6 @@ export const LoginPage: React.FC = () => {
       const accessToken = response.access_token || (response as any).data?.access_token;
       const refreshToken = response.refresh_token || (response as any).data?.refresh_token;
       await login(accessToken, refreshToken);
-
-      const from = (location.state as any)?.from?.pathname || "/dashboard";
-      navigate(from, { replace: true });
     } catch (err: any) {
       setError(
         err.message ||
@@ -165,7 +179,7 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => fillDemoAccount("teacher@eduvia.app", "strongpassword123")}
@@ -191,6 +205,34 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <span className="text-[10px] text-slate-500 font-mono mt-0.5 truncate w-full">
                   admin@eduvia.app
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemoAccount("learner@eduvia.app", "learnerpassword123")}
+                className="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all text-left group"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                  <Badge variant="outline" className="px-1 py-0 text-[9px] uppercase bg-emerald-100 text-emerald-800 border-emerald-200">Learner</Badge>
+                  <span>Learner Demo</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5 truncate w-full">
+                  learner@eduvia.app
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemoAccount("researcher@eduvia.app", "researcherpassword123")}
+                className="flex flex-col items-start p-2.5 rounded-lg border border-slate-200 hover:border-purple-300 hover:bg-purple-50/50 transition-all text-left group"
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800">
+                  <FlaskConical className="w-3.5 h-3.5 text-purple-700" />
+                  <span>Researcher Demo</span>
+                </div>
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5 truncate w-full">
+                  researcher@eduvia.app
                 </span>
               </button>
             </div>

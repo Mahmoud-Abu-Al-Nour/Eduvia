@@ -117,10 +117,12 @@ class GeminiProvider(LLMProvider):
         client = self._get_client()
         prompt = self._build_prompt(messages)
 
+        model_name = getattr(cfg, "model", None) or self._model_name
+
         try:
             logger.debug(
                 "gemini_generate_request",
-                model=self._model_name,
+                model=model_name,
                 message_count=len(messages),
                 temperature=cfg.temperature,
             )
@@ -137,7 +139,7 @@ class GeminiProvider(LLMProvider):
             # Support both async aio client and synchronous/mocked client
             if hasattr(client, "aio") and hasattr(client.aio, "models"):
                 resp = await client.aio.models.generate_content(
-                    model=self._model_name,
+                    model=model_name,
                     contents=prompt,
                     config=gen_config,
                 )
@@ -145,7 +147,7 @@ class GeminiProvider(LLMProvider):
                 resp = await asyncio.get_event_loop().run_in_executor(
                     None,
                     lambda: client.models.generate_content(
-                        model=self._model_name,
+                        model=model_name,
                         contents=prompt,
                         config=gen_config,
                     ),
@@ -163,13 +165,13 @@ class GeminiProvider(LLMProvider):
 
             logger.debug(
                 "gemini_generate_response",
-                model=self._model_name,
+                model=model_name,
                 usage=usage,
             )
 
             return LLMResponse(
                 content=content,
-                model=self._model_name,
+                model=model_name,
                 provider=self.provider_name,
                 usage=usage,
             )

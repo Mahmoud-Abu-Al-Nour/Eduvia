@@ -25,7 +25,7 @@ os.environ.setdefault(
 os.environ.setdefault("QDRANT_URL", "http://localhost:6333")
 os.environ.setdefault("QDRANT_API_KEY", "")
 os.environ.setdefault("GEMINI_API_KEY", "test-gemini-key-placeholder")
-os.environ.setdefault("GEMINI_MODEL", "gemini-2.0-flash-exp")
+os.environ.setdefault("GEMINI_MODEL", "gemini-3.8-flash")
 os.environ.setdefault("JWT_SECRET", "test-jwt-secret-for-testing-only-minimum-32-chars")
 os.environ.setdefault("JWT_ALGORITHM", "HS256")
 os.environ.setdefault("CORS_ORIGINS_RAW", "http://localhost:5173")

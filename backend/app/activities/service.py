@@ -10,6 +10,7 @@ Coordinates between:
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import structlog
@@ -24,6 +25,7 @@ from app.activities.schemas import (
     ActivityGenerateRequest,
     ActivityGenerateResponse,
     ActivityGenerationSummary,
+    ActivityQuestion,
     ActivitySubmissionRequest,
     ActivityType,
     ActivityUpdateRequest,
@@ -38,6 +40,8 @@ from app.activities.schemas import (
     MultipleChoiceSubmission,
     OrderingContent,
     OrderingSubmission,
+    QuestionEvaluationResult,
+    QuestionSubmission,
     VisualIdentificationContent,
     VisualIdentificationSubmission,
 )
@@ -64,7 +68,167 @@ def _extract_localized_text(field_value: Any, lang: str = "en") -> str:
     """Extract localized text string from a JSONB localized dict or scalar."""
     if isinstance(field_value, dict):
         return str(field_value.get(lang) or field_value.get("en") or next(iter(field_value.values()), ""))
-    return str(field_value or "")
+def _evaluate_question_content(
+    content: ActivityContent,
+    submission: Any,
+) -> tuple[bool, float, str, str | None, dict[str, Any], dict[str, Any]]:
+    """Authoritative evaluation of a single question modality content against its submission."""
+    if submission.activity_type != content.activity_type:
+        raise ValidationError(
+            f"Submission modality '{submission.activity_type.value}' does not match question type '{content.activity_type.value}'."
+        )
+
+    is_correct = False
+    score = 0.0
+    feedback = ""
+    explanation: str | None = None
+    correct_answer_summary: dict[str, Any] = {}
+    evaluation_details: dict[str, Any] = {}
+
+    if isinstance(content, MultipleChoiceContent) and isinstance(submission, MultipleChoiceSubmission):
+        valid_option_ids = {opt.id for opt in content.options}
+        if submission.selected_option_id not in valid_option_ids:
+            raise ValidationError(
+                f"Selected option '{submission.selected_option_id}' does not exist in activity options."
+            )
+
+        is_correct = (submission.selected_option_id == content.correct_answer_id)
+        score = 1.0 if is_correct else 0.0
+        explanation = content.explanation
+        correct_answer_summary = {
+            "correct_answer_id": content.correct_answer_id,
+            "explanation": content.explanation,
+        }
+        evaluation_details = {
+            "selected_option_id": submission.selected_option_id,
+            "correct_answer_id": content.correct_answer_id,
+        }
+        feedback = (
+            "Wonderful focus! You found the right answer."
+            if is_correct
+            else "Good effort! Take a moment to review and try again."
+        )
+
+    elif isinstance(content, MatchingContent) and isinstance(submission, MatchingSubmission):
+        valid_left = {i.id for i in content.left_items}
+        valid_right = {i.id for i in content.right_items}
+
+        for pair in submission.pairs:
+            if pair.left_id not in valid_left:
+                raise ValidationError(f"Left item '{pair.left_id}' does not exist in matching activity.")
+            if pair.right_id not in valid_right:
+                raise ValidationError(f"Right item '{pair.right_id}' does not exist in matching activity.")
+
+        target_pairs = {(p.left_id, p.right_id) for p in content.pairs}
+        submitted_pairs = {(p.left_id, p.right_id) for p in submission.pairs}
+        matched_correct = len(submitted_pairs.intersection(target_pairs))
+        total = len(target_pairs)
+
+        score = round(matched_correct / total, 2) if total > 0 else 1.0
+        is_correct = (matched_correct == total and len(submitted_pairs) == total)
+        correct_answer_summary = {
+            "pairs": [{"left_id": p.left_id, "right_id": p.right_id} for p in content.pairs]
+        }
+        evaluation_details = {
+            "correct_pairs_count": matched_correct,
+            "total_pairs": total,
+        }
+        if is_correct:
+            feedback = "Brilliant matching! All pairs are connected correctly."
+        elif score > 0:
+            feedback = f"Nice work! You connected {matched_correct} of {total} pairs correctly. Take your time to review the rest."
+        else:
+            feedback = "Good try! Review the items calmly and give it another go."
+
+    elif isinstance(content, OrderingContent) and isinstance(submission, OrderingSubmission):
+        valid_item_ids = {i.id for i in content.items}
+        for item_id in submission.ordered_ids:
+            if item_id not in valid_item_ids:
+                raise ValidationError(f"Item '{item_id}' does not exist in ordering activity items.")
+
+        if len(submission.ordered_ids) != len(content.correct_sequence):
+            raise ValidationError(
+                f"Expected {len(content.correct_sequence)} items, but received {len(submission.ordered_ids)}."
+            )
+
+        correct_seq = content.correct_sequence
+        submitted_seq = submission.ordered_ids
+        matching_positions = sum(1 for a, b in zip(submitted_seq, correct_seq) if a == b)
+        total = len(correct_seq)
+
+        score = round(matching_positions / total, 2) if total > 0 else 1.0
+        is_correct = (submitted_seq == correct_seq)
+        correct_answer_summary = {
+            "correct_sequence": correct_seq,
+            "direction": content.direction,
+        }
+        evaluation_details = {
+            "matching_positions": matching_positions,
+            "total_items": total,
+        }
+        if is_correct:
+            feedback = "Spot on! The sequence is arranged in perfect order."
+        elif score > 0.5:
+            feedback = "Great progress! Most items are in the right position."
+        else:
+            feedback = "Nice try! Look closely at the beginning of the sequence and try again."
+
+    elif isinstance(content, VisualIdentificationContent) and isinstance(submission, VisualIdentificationSubmission):
+        valid_element_ids = {el.id for el in content.elements}
+        if submission.selected_element_id not in valid_element_ids:
+            raise ValidationError(
+                f"Element '{submission.selected_element_id}' does not exist in scene elements."
+            )
+
+        is_correct = (submission.selected_element_id == content.target_id)
+        score = 1.0 if is_correct else 0.0
+        explanation = content.feedback_clue
+        correct_answer_summary = {
+            "target_id": content.target_id,
+            "feedback_clue": content.feedback_clue,
+        }
+        evaluation_details = {
+            "selected_element_id": submission.selected_element_id,
+            "target_id": content.target_id,
+        }
+        feedback = (
+            "Fantastic observation! You found the target in the scene."
+            if is_correct
+            else f"Good effort! Here is a gentle clue: {content.feedback_clue}"
+        )
+
+    elif isinstance(content, DragDropContent) and isinstance(submission, DragDropSubmission):
+        valid_item_ids = {i.id for i in content.items}
+        valid_zone_ids = {z.id for z in content.zones}
+
+        for item_id, zone_id in submission.item_to_zone_mapping.items():
+            if item_id not in valid_item_ids:
+                raise ValidationError(f"Draggable item '{item_id}' does not exist in activity items.")
+            if zone_id not in valid_zone_ids:
+                raise ValidationError(f"Drop zone '{zone_id}' does not exist in activity zones.")
+
+        target_mapping = content.correct_mapping
+        total = len(target_mapping)
+        correct_count = sum(
+            1 for k, v in submission.item_to_zone_mapping.items() if target_mapping.get(k) == v
+        )
+        score = round(correct_count / total, 2) if total > 0 else 1.0
+        is_correct = (correct_count == total and len(submission.item_to_zone_mapping) == total)
+        correct_answer_summary = {
+            "correct_mapping": content.correct_mapping,
+        }
+        evaluation_details = {
+            "correct_count": correct_count,
+            "total_items": total,
+        }
+        if is_correct:
+            feedback = "Excellent sorting! Every single item is in its proper place."
+        elif score > 0:
+            feedback = f"Well done! You categorized {correct_count} of {total} items correctly."
+        else:
+            feedback = "Good effort! Take another look at the category labels and try again."
+
+    return is_correct, score, feedback, explanation, correct_answer_summary, evaluation_details
 
 
 class ActivityService:
@@ -200,7 +364,7 @@ class ActivityService:
                     from app.content.bank import get_content_bank
                     bank = get_content_bank()
                     content_item = bank.get_by_objective(
-                        request.objective_id,
+                        objective.id,
                         target_activity_type,
                         effective_difficulty,
                     )
@@ -245,6 +409,19 @@ class ActivityService:
                 if isinstance(raw_response.get("content"), dict):
                     raw_response["content"]["activity_type"] = target_activity_type.value
 
+                # Ensure questions list is properly stamped if generated
+                if isinstance(raw_response.get("questions"), list):
+                    for idx, q_data in enumerate(raw_response["questions"], start=1):
+                        if isinstance(q_data, dict):
+                            if not q_data.get("id"):
+                                q_data["id"] = f"q{idx}"
+                            if not q_data.get("question_number"):
+                                q_data["question_number"] = idx
+                            if not q_data.get("question_type"):
+                                q_data["question_type"] = target_activity_type.value
+                            if isinstance(q_data.get("content"), dict):
+                                q_data["content"]["activity_type"] = target_activity_type.value
+
                 activity = Activity.model_validate(raw_response)
                 _ACTIVITIES_CACHE[activity.id] = activity
 
@@ -270,7 +447,7 @@ class ActivityService:
                 )
 
                 return ActivityGenerateResponse(
-                    activity=activity,
+                    activity=activity.to_learner_safe(),
                     fallback_used=False,
                     generation_source=self.orchestrator.provider.provider_name,
                     learner_id=request.learner_id,
@@ -288,13 +465,14 @@ class ActivityService:
 
         # 6. Fallback Deterministic Generation
         fallback = create_fallback_activity(
-            objective_id=request.objective_id,
+            objective_id=objective.id,
             objective_title=objective_title,
             objective_description=objective_desc,
             difficulty_level=effective_difficulty,
             activity_type=target_activity_type,
             language=request.language,
             item_count=request.item_count,
+            question_count=request.question_count,
             seed=request.seed or 0,
         )
         _ACTIVITIES_CACHE[fallback.id] = fallback
@@ -319,7 +497,7 @@ class ActivityService:
         )
 
         return ActivityGenerateResponse(
-            activity=fallback,
+            activity=fallback.to_learner_safe(),
             fallback_used=True,
             generation_source="deterministic_fallback",
             learner_id=request.learner_id,
@@ -359,7 +537,7 @@ class ActivityService:
             bank = get_content_bank()
             target_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
             diff = request.difficulty_level or 1
-            content_item = bank.get_by_objective(request.objective_id, target_type, diff)
+            content_item = bank.get_by_objective(objective.id, target_type, diff)
             if content_item:
                 authoritative_content_payload = {
                     "prompt": content_item.get_prompt(request.language),
@@ -430,7 +608,7 @@ class ActivityService:
             bank = get_content_bank()
             target_type = request.activity_type or ActivityType.MULTIPLE_CHOICE
             diff = request.difficulty_level or 1
-            content_item = bank.get_by_objective(request.objective_id, target_type, diff)
+            content_item = bank.get_by_objective(objective.id, target_type, diff)
             if content_item:
                 authoritative_content_payload = {
                     "prompt": content_item.get_prompt(request.language),
@@ -491,7 +669,7 @@ class ActivityService:
 
         # Fallback mini-lesson
         fallback_lesson = create_fallback_lesson(
-            objective_id=request.objective_id,
+            objective_id=objective.id,
             objective_title=objective_title,
             objective_description=objective_desc,
             difficulty_level=request.difficulty_level or 1,
@@ -567,22 +745,35 @@ class ActivityService:
         """
         Authoritatively evaluate a learner submission against activity content.
         
-        Enforces schema validation, calculates accuracy score, checks objective
-        mastery rubric, and generates positive Cognitive Calm feedback.
+        Supports both multi-question activities (3-10 questions) and backward-compatible
+        single-question legacy submissions. Enforces schema validation, calculates
+        accuracy score per question and in aggregate, checks objective mastery rubric,
+        and generates positive Cognitive Calm feedback.
         """
         # 1. Early Modality Verification
-        if request.submission.activity_type != request.activity_type:
+        if request.submission and request.submission.activity_type != request.activity_type:
             raise ValidationError(
                 f"Submission modality '{request.submission.activity_type.value}' does not match activity type '{request.activity_type.value}'."
             )
 
-        # 2. Resolve Authoritative Activity Content
-        content: ActivityContent | None = request.activity_content
+        # 2. Resolve Authoritative Activity
         cached_activity = _ACTIVITIES_CACHE.get(request.activity_id)
-        if content is None and cached_activity is not None:
-            content = cached_activity.content
+        if cached_activity is None:
+            cached_activity = await self.get_activity(request.activity_id)
 
-        if content is None:
+        activity_questions: list[ActivityQuestion] = []
+        if cached_activity is not None and cached_activity.questions:
+            activity_questions = list(cached_activity.questions)
+        elif request.activity_content is not None:
+            activity_questions = [
+                ActivityQuestion(
+                    id=str(request.activity_id),
+                    question_number=1,
+                    question_type=request.activity_type,
+                    content=request.activity_content,
+                )
+            ]
+        else:
             # Fallback to reconstructing deterministic activity from learning objective
             objective = None
             if self.session is not None:
@@ -602,179 +793,109 @@ class ActivityService:
                 )
             obj_title = _extract_localized_text(objective.title)
             obj_desc = _extract_localized_text(objective.description) if objective.description else None
+            q_count = len(request.questions) if request.questions and len(request.questions) >= 3 else 5
             fallback = create_fallback_activity(
                 objective_id=request.objective_id,
                 objective_title=obj_title,
                 objective_description=obj_desc,
                 difficulty_level=getattr(objective, "difficulty_level", 1) or 1,
                 activity_type=request.activity_type,
+                question_count=q_count,
             )
-            content = fallback.content
             _ACTIVITIES_CACHE[fallback.id] = fallback
+            activity_questions = list(fallback.questions)
 
-        # 3. Verify Content Type Alignment
-        if request.activity_type != content.activity_type:
-            raise ValidationError(
-                f"Activity type mismatch: expected '{content.activity_type.value}', got '{request.activity_type.value}'."
-            )
-        if request.submission.activity_type != content.activity_type:
-            raise ValidationError(
-                f"Submission modality '{request.submission.activity_type.value}' does not match activity type '{content.activity_type.value}'."
-            )
+        # 3. Validate Submitted Question IDs
+        submitted_ids = [str(q.question_id) for q in request.questions]
+        if len(submitted_ids) != len(set(submitted_ids)):
+            raise ValidationError("Duplicate question IDs found in submission.")
 
-        # 4. Modality-Specific Authoritative Evaluation
-        is_correct = False
-        score = 0.0
+        questions_by_id = {str(q.id): q for q in activity_questions}
 
-        feedback = ""
-        explanation: str | None = None
-        correct_answer_summary: dict[str, Any] = {}
-        evaluation_details: dict[str, Any] = {}
+        # Handle matching
+        if len(activity_questions) == 1 and len(request.questions) == 1:
+            answered_submissions = {str(activity_questions[0].id): request.questions[0].submission}
+        else:
+            for qid in submitted_ids:
+                if qid not in questions_by_id:
+                    raise ValidationError(f"Question with id '{qid}' does not belong to activity '{request.activity_id}'.")
+            answered_submissions = {str(q.question_id): q.submission for q in request.questions}
 
-        if isinstance(content, MultipleChoiceContent) and isinstance(request.submission, MultipleChoiceSubmission):
-            valid_option_ids = {opt.id for opt in content.options}
-            if request.submission.selected_option_id not in valid_option_ids:
-                raise ValidationError(
-                    f"Selected option '{request.submission.selected_option_id}' does not exist in activity options."
+        # 4. Modality-Specific Authoritative Evaluation per Question
+        question_results: list[QuestionEvaluationResult] = []
+
+        for q in activity_questions:
+            qid_str = str(q.id)
+            if qid_str in answered_submissions:
+                q_sub = answered_submissions[qid_str]
+                if q_sub.activity_type != request.activity_type:
+                    raise ValidationError(
+                        f"Submission modality '{q_sub.activity_type.value}' does not match activity type '{request.activity_type.value}'."
+                    )
+                q_correct, q_score, q_fb, q_expl, q_ans_sum, q_details = _evaluate_question_content(q.content, q_sub)
+                question_results.append(
+                    QuestionEvaluationResult(
+                        question_id=qid_str,
+                        question_number=q.question_number,
+                        is_correct=q_correct,
+                        score=q_score,
+                        feedback=q_fb,
+                        explanation=q_expl or q.explanation,
+                        correct_answer_summary=q_ans_sum,
+                        evaluation_details=q_details,
+                    )
+                )
+            else:
+                question_results.append(
+                    QuestionEvaluationResult(
+                        question_id=qid_str,
+                        question_number=q.question_number,
+                        is_correct=False,
+                        score=0.0,
+                        feedback="Question not answered.",
+                        explanation=q.explanation,
+                        correct_answer_summary={},
+                        evaluation_details={"unanswered": True},
+                    )
                 )
 
-            is_correct = (request.submission.selected_option_id == content.correct_answer_id)
-            score = 1.0 if is_correct else 0.0
-            explanation = content.explanation
-            correct_answer_summary = {
-                "correct_answer_id": content.correct_answer_id,
-                "explanation": content.explanation,
-            }
-            evaluation_details = {
-                "selected_option_id": request.submission.selected_option_id,
-                "correct_answer_id": content.correct_answer_id,
-            }
-            feedback = (
-                "Wonderful focus! You found the right answer."
-                if is_correct
-                else "Good effort! Take a moment to review and try again."
-            )
+        # 5. Aggregate Calculations
+        questions_total = len(activity_questions)
+        questions_answered = len(answered_submissions)
+        questions_correct = sum(1 for qr in question_results if qr.is_correct)
+        overall_score = round(sum(qr.score for qr in question_results) / questions_total, 2) if questions_total > 0 else 0.0
+        percentage = round(overall_score * 100.0, 1)
+        is_correct = (overall_score >= 0.80 and questions_total > 0)
 
-        elif isinstance(content, MatchingContent) and isinstance(request.submission, MatchingSubmission):
-            valid_left = {i.id for i in content.left_items}
-            valid_right = {i.id for i in content.right_items}
-
-            for pair in request.submission.pairs:
-                if pair.left_id not in valid_left:
-                    raise ValidationError(f"Left item '{pair.left_id}' does not exist in matching activity.")
-                if pair.right_id not in valid_right:
-                    raise ValidationError(f"Right item '{pair.right_id}' does not exist in matching activity.")
-
-            target_pairs = {(p.left_id, p.right_id) for p in content.pairs}
-            submitted_pairs = {(p.left_id, p.right_id) for p in request.submission.pairs}
-            matched_correct = len(submitted_pairs.intersection(target_pairs))
-            total = len(target_pairs)
-
-            score = round(matched_correct / total, 2) if total > 0 else 1.0
-            is_correct = (matched_correct == total and len(submitted_pairs) == total)
-            correct_answer_summary = {
-                "pairs": [{"left_id": p.left_id, "right_id": p.right_id} for p in content.pairs]
-            }
-            evaluation_details = {
-                "correct_pairs_count": matched_correct,
-                "total_pairs": total,
-            }
+        # 6. Top-level Feedback & Details (Preserves single-question compatibility)
+        if questions_total == 1:
+            q0 = question_results[0]
+            feedback = q0.feedback
+            explanation = q0.explanation
+            correct_answer_summary = q0.correct_answer_summary
+            evaluation_details = q0.evaluation_details
+        else:
             if is_correct:
-                feedback = "Brilliant matching! All pairs are connected correctly."
-            elif score > 0:
-                feedback = f"Nice work! You connected {matched_correct} of {total} pairs correctly. Take your time to review the rest."
+                feedback = f"Outstanding work! All {questions_total} questions answered correctly! ({percentage}%)"
+            elif percentage >= 80.0:
+                feedback = f"Great effort! You got {questions_correct} of {questions_total} correct ({percentage}%)."
+            elif percentage > 0.0:
+                feedback = f"Good practice session! You answered {questions_correct} of {questions_total} correctly ({percentage}%). Keep going!"
             else:
-                feedback = "Good try! Review the items calmly and give it another go."
-
-        elif isinstance(content, OrderingContent) and isinstance(request.submission, OrderingSubmission):
-            valid_item_ids = {i.id for i in content.items}
-            for item_id in request.submission.ordered_ids:
-                if item_id not in valid_item_ids:
-                    raise ValidationError(f"Item '{item_id}' does not exist in ordering activity items.")
-
-            if len(request.submission.ordered_ids) != len(content.correct_sequence):
-                raise ValidationError(
-                    f"Expected {len(content.correct_sequence)} items, but received {len(request.submission.ordered_ids)}."
-                )
-
-            correct_seq = content.correct_sequence
-            submitted_seq = request.submission.ordered_ids
-            matching_positions = sum(1 for a, b in zip(submitted_seq, correct_seq) if a == b)
-            total = len(correct_seq)
-
-            score = round(matching_positions / total, 2) if total > 0 else 1.0
-            is_correct = (submitted_seq == correct_seq)
+                feedback = "Good try! Review the questions calmly and give it another go."
+            explanation = None
             correct_answer_summary = {
-                "correct_sequence": correct_seq,
-                "direction": content.direction,
+                "questions_total": questions_total,
+                "questions_correct": questions_correct,
             }
             evaluation_details = {
-                "matching_positions": matching_positions,
-                "total_items": total,
+                "questions_total": questions_total,
+                "questions_answered": questions_answered,
+                "questions_correct": questions_correct,
+                "percentage": percentage,
             }
-            if is_correct:
-                feedback = "Spot on! The sequence is arranged in perfect order."
-            elif score > 0.5:
-                feedback = "Great progress! Most items are in the right position."
-            else:
-                feedback = "Nice try! Look closely at the beginning of the sequence and try again."
 
-        elif isinstance(content, VisualIdentificationContent) and isinstance(request.submission, VisualIdentificationSubmission):
-            valid_element_ids = {el.id for el in content.elements}
-            if request.submission.selected_element_id not in valid_element_ids:
-                raise ValidationError(
-                    f"Element '{request.submission.selected_element_id}' does not exist in scene elements."
-                )
-
-            is_correct = (request.submission.selected_element_id == content.target_id)
-            score = 1.0 if is_correct else 0.0
-            explanation = content.feedback_clue
-            correct_answer_summary = {
-                "target_id": content.target_id,
-                "feedback_clue": content.feedback_clue,
-            }
-            evaluation_details = {
-                "selected_element_id": request.submission.selected_element_id,
-                "target_id": content.target_id,
-            }
-            feedback = (
-                "Fantastic observation! You found the target in the scene."
-                if is_correct
-                else f"Good effort! Here is a gentle clue: {content.feedback_clue}"
-            )
-
-        elif isinstance(content, DragDropContent) and isinstance(request.submission, DragDropSubmission):
-            valid_item_ids = {i.id for i in content.items}
-            valid_zone_ids = {z.id for z in content.zones}
-
-            for item_id, zone_id in request.submission.item_to_zone_mapping.items():
-                if item_id not in valid_item_ids:
-                    raise ValidationError(f"Draggable item '{item_id}' does not exist in activity items.")
-                if zone_id not in valid_zone_ids:
-                    raise ValidationError(f"Drop zone '{zone_id}' does not exist in activity zones.")
-
-            target_mapping = content.correct_mapping
-            total = len(target_mapping)
-            correct_count = sum(
-                1 for k, v in request.submission.item_to_zone_mapping.items() if target_mapping.get(k) == v
-            )
-            score = round(correct_count / total, 2) if total > 0 else 1.0
-            is_correct = (correct_count == total and len(request.submission.item_to_zone_mapping) == total)
-            correct_answer_summary = {
-                "correct_mapping": content.correct_mapping,
-            }
-            evaluation_details = {
-                "correct_count": correct_count,
-                "total_items": total,
-            }
-            if is_correct:
-                feedback = "Excellent sorting! Every single item is in its proper place."
-            elif score > 0:
-                feedback = f"Well done! You categorized {correct_count} of {total} items correctly."
-            else:
-                feedback = "Good effort! Take another look at the category labels and try again."
-
-        # 5. Determine Assistance Level and Mastery Criteria
+        # 7. Determine Assistance Level and Mastery Criteria
         assistance_level = min(3, max(0, request.hints_used))
         min_acc = 0.80
         max_assist = 1
@@ -795,51 +916,91 @@ class ActivityService:
             except Exception:
                 pass
 
-        mastery_achieved = bool((score >= min_acc) and (assistance_level <= max_assist))
+        mastery_achieved = bool((overall_score >= min_acc) and (assistance_level <= max_assist))
         if mastery_achieved:
             feedback += " You have demonstrated mastery of this objective!"
 
-        # 6. Authoritative Telemetry Ingestion (Phase 6)
+        # 8. Authoritative Telemetry Ingestion (Phase 6)
         if request.learner_id is not None and self.session is not None:
             try:
-                from app.analytics.schemas import Modality, PerformanceEventCreate, TeachingStrategy
+                from app.analytics.schemas import (
+                    ActivityAttemptCreate,
+                    Modality,
+                    PerformanceEventCreate,
+                    TeachingStrategy,
+                )
                 from app.analytics.service import AnalyticsService
 
+                analytics_service = AnalyticsService(self.session)
+
+                # 8a. Record ActivityAttempt for the whole activity
+                attempt_id = None
+                try:
+                    now = datetime.now(timezone.utc)
+                    attempt_in = ActivityAttemptCreate(
+                        activity_id=request.activity_id,
+                        learner_id=request.learner_id,
+                        session_id=request.session_id,
+                        started_at=now - timedelta(seconds=max(1, request.time_spent_seconds)),
+                        completed_at=now,
+                        response_data={
+                            "questions_total": questions_total,
+                            "questions_answered": questions_answered,
+                            "questions_correct": questions_correct,
+                            "overall_score": overall_score,
+                            "percentage": percentage,
+                        },
+                        score=overall_score,
+                        completed=True,
+                    )
+                    attempt = await analytics_service.record_activity_attempt(attempt_in)
+                    attempt_id = attempt.id
+                except Exception as attempt_err:
+                    logger.warning("activity_attempt_recording_failed", error=str(attempt_err))
+
+                # 8b. Record PerformanceEvent for each question
                 modality_val = Modality.VISUAL
                 if request.activity_type in (ActivityType.ORDERING, ActivityType.DRAG_DROP, ActivityType.MATCHING):
                     modality_val = Modality.INTERACTIVE
 
-                response_time_ms = max(0, int(request.time_spent_seconds * 1000))
+                time_per_q_ms = max(0, int((request.time_spent_seconds / max(1, len(question_results))) * 1000))
 
-                telemetry_event = PerformanceEventCreate(
-                    learner_id=request.learner_id,
-                    activity_id=request.activity_id,
-                    objective_id=request.objective_id,
-                    activity_type=request.activity_type,
-                    modality=modality_val,
-                    strategy=TeachingStrategy.STEP_BY_STEP,
-                    correct=is_correct,
-                    score=score,
-                    attempts=1,
-                    response_time_ms=response_time_ms,
-                    hints_used=request.hints_used,
-                    assistance_level=assistance_level,
-                    completed=True,
-                    difficulty=1,
-                    metadata={
-                        "mastery_achieved": mastery_achieved,
-                        "evaluation_details": evaluation_details,
-                    },
-                )
-                analytics_service = AnalyticsService(self.session)
-                await analytics_service.record_performance_event(telemetry_event)
+                for q_res in question_results:
+                    try:
+                        telemetry_event = PerformanceEventCreate(
+                            learner_id=request.learner_id,
+                            activity_id=request.activity_id,
+                            question_id=str(q_res.question_id),
+                            attempt_id=attempt_id,
+                            objective_id=request.objective_id,
+                            activity_type=request.activity_type,
+                            modality=modality_val,
+                            strategy=TeachingStrategy.STEP_BY_STEP,
+                            correct=q_res.is_correct,
+                            score=q_res.score,
+                            attempts=1,
+                            response_time_ms=time_per_q_ms,
+                            hints_used=request.hints_used,
+                            assistance_level=assistance_level,
+                            completed=True,
+                            difficulty=1,
+                            metadata={
+                                "question_number": q_res.question_number,
+                                "mastery_achieved": mastery_achieved,
+                                "evaluation_details": q_res.evaluation_details,
+                            },
+                        )
+                        await analytics_service.record_performance_event(telemetry_event)
+                    except Exception as q_event_err:
+                        logger.warning("question_telemetry_event_failed", question_id=q_res.question_id, error=str(q_event_err))
+
             except Exception as exc:
                 logger.warning("performance_event_recording_failed", error=str(exc))
 
         return ActivityEvaluationResponse(
             activity_id=request.activity_id,
             is_correct=is_correct,
-            score=score,
+            score=overall_score,
             mastery_achieved=mastery_achieved,
             feedback=feedback,
             explanation=explanation,
@@ -847,5 +1008,10 @@ class ActivityService:
             hints_used=request.hints_used,
             assistance_level=assistance_level,
             evaluation_details=evaluation_details,
+            question_results=question_results,
+            questions_total=questions_total,
+            questions_answered=questions_answered,
+            questions_correct=questions_correct,
+            percentage=percentage,
         )
 

@@ -14,6 +14,7 @@ Requires-Dist: asyncpg>=0.30.0
 Requires-Dist: alembic>=1.13.0
 Requires-Dist: psycopg2-binary>=2.9.9
 Requires-Dist: qdrant-client>=1.11.1
+Requires-Dist: google-genai>=2.0.0
 Requires-Dist: google-generativeai>=0.8.0
 Requires-Dist: PyJWT>=2.9.0
 Requires-Dist: bcrypt>=4.0.0

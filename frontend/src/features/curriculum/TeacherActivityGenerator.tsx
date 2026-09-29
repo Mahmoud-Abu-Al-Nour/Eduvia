@@ -89,7 +89,7 @@ export const TeacherActivityGenerator: React.FC<TeacherActivityGeneratorProps> =
   const [mode, setMode] = useState<"activity" | "lesson">("activity");
 
   // Brief configuration
-  const [objectiveId, setObjectiveId] = useState<string>(propObjectiveId || "math-num-01");
+  const [objectiveId, setObjectiveId] = useState<string>(propObjectiveId || "77777777-7777-7777-7777-777777777777");
   const [activityType, setActivityType] = useState<string>("auto");
   const [difficulty, setDifficulty] = useState<number>(defaultDifficulty);
   const [itemCount, setItemCount] = useState<number>(5);
@@ -156,7 +156,7 @@ export const TeacherActivityGenerator: React.FC<TeacherActivityGeneratorProps> =
     try {
       const promptData = await activitiesApi.previewPrompt({
         objective_id: objectiveId,
-        activity_type: activityType,
+        activity_type: activityType === "auto" ? undefined : (activityType as any),
         difficulty_level: difficulty,
         item_count: itemCount,
         language,
@@ -188,7 +188,7 @@ export const TeacherActivityGenerator: React.FC<TeacherActivityGeneratorProps> =
       if (mode === "lesson") {
         const res = await activitiesApi.generateLesson({
           objective_id: objectiveId,
-          activity_type: activityType === "auto" ? "multiple_choice" : activityType,
+          activity_type: activityType === "auto" ? undefined : (activityType as any),
           difficulty_level: difficulty,
           item_count: itemCount,
           language,
@@ -210,7 +210,7 @@ export const TeacherActivityGenerator: React.FC<TeacherActivityGeneratorProps> =
       } else {
         const res = await activitiesApi.generate({
           objective_id: objectiveId,
-          activity_type: activityType,
+          activity_type: activityType === "auto" ? undefined : (activityType as any),
           difficulty_level: difficulty,
           item_count: itemCount,
           language,

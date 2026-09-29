@@ -5,4 +5,5 @@ export { OrderingActivity } from './components/OrderingActivity'
 export { VisualIdentificationActivity } from './components/VisualIdentificationActivity'
 export { DragDropActivity } from './components/DragDropActivity'
 export { CognitiveCalmFeedback } from './components/CognitiveCalmFeedback'
+export { InstructionalContentView } from './InstructionalContentView'
 

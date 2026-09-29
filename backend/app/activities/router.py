@@ -21,10 +21,12 @@ from app.activities.schemas import (
     ActivityType,
     ActivityUpdateRequest,
     EffectiveGenerationPrompt,
+    LearnerActivity,
     LessonGenerateResponse,
 )
 from app.activities.service import ActivityService
-from app.auth.dependencies import get_current_user
+from app.auth.dependencies import get_current_user, require_permission
+from app.auth.permissions import Permission
 from app.core.errors import NotFoundError, ValidationError
 from app.core.rate_limit import (
     activity_evaluate_rate_limiter,
@@ -55,6 +57,7 @@ def get_activity_service(
 )
 async def preview_prompt(
     request: ActivityGenerateRequest,
+    current_user: User = Depends(require_permission(Permission.ACTIVITIES_GENERATE)),
     service: ActivityService = Depends(get_activity_service),
 ) -> EffectiveGenerationPrompt:
     return await service.preview_prompt(request=request)
@@ -75,7 +78,7 @@ async def preview_prompt(
 async def generate_activity(
     request: ActivityGenerateRequest,
     http_request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(Permission.ACTIVITIES_GENERATE)),
     service: ActivityService = Depends(get_activity_service),
 ) -> ActivityGenerateResponse:
     # Rate limit check by teacher identity
@@ -93,7 +96,7 @@ async def generate_activity(
 )
 async def generate_lesson(
     request: ActivityGenerateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(Permission.ACTIVITIES_GENERATE)),
     service: ActivityService = Depends(get_activity_service),
 ) -> LessonGenerateResponse:
     return await service.generate_lesson(request=request, current_user=current_user)
@@ -106,6 +109,7 @@ async def generate_lesson(
     summary="Retrieve recent activity generation history for the session",
 )
 async def get_generation_history(
+    current_user: User = Depends(require_permission(Permission.ACTIVITIES_READ_ASSIGNED)),
     service: ActivityService = Depends(get_activity_service),
 ) -> list[ActivityGenerationSummary]:
     return await service.get_history()
@@ -189,7 +193,7 @@ async def evaluate_submission(
 
 @router.get(
     "/{activity_id}",
-    response_model=Activity,
+    response_model=LearnerActivity,
     status_code=status.HTTP_200_OK,
     summary="Retrieve activity by ID",
     description="Fetches an activity instance from the registry for learner interaction.",
@@ -197,14 +201,14 @@ async def evaluate_submission(
 async def get_activity(
     activity_id: uuid.UUID,
     service: ActivityService = Depends(get_activity_service),
-) -> Activity:
+) -> LearnerActivity:
     activity = await service.get_activity(activity_id=activity_id)
     if not activity:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Activity with id '{activity_id}' not found.",
         )
-    return activity
+    return activity.to_learner_safe()
 
 
 @router.patch(
@@ -217,6 +221,7 @@ async def get_activity(
 async def update_activity(
     activity_id: uuid.UUID,
     update_req: ActivityUpdateRequest,
+    current_user: User = Depends(require_permission(Permission.ACTIVITIES_GENERATE)),
     service: ActivityService = Depends(get_activity_service),
 ) -> Activity:
     try:

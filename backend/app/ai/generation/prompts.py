@@ -110,10 +110,12 @@ def compile_generation_prompt(
     sections["LEARNER CONTEXT"] = "\n".join(learner_parts)
 
     # 4. TEACHER PARAMETERS (Configured)
+    q_count = getattr(spec, "question_count", 5)
     sections["TEACHER PARAMETERS"] = (
         f"- Modality: {act_type.value}\n"
         f"- Difficulty Level: Level {target_difficulty} (scale 1 to 5)\n"
-        f"- Target Item/Question Count: {spec.item_count}\n"
+        f"- Target Question Count: {q_count} questions in this activity\n"
+        f"- Target Item Count per Question: {spec.item_count}\n"
         f"- Language: {spec.language}\n"
         f"- Visual Style: {spec.visual_style}\n"
         f"- Scaffolding Level: Level {spec.scaffolding_level} (0=none, 1=gentle, 2=guided, 3=explicit)\n"
@@ -226,7 +228,18 @@ def compile_generation_prompt(
         '  "instructions": "Simple 1-2 sentence instruction",\n'
         f'  "difficulty_level": {target_difficulty},\n'
         f'  "activity_type": "{act_type.value}",\n'
-        '  "content": { ...activity-type specific content object... },\n'
+        f'  "questions": [\n'
+        '    {\n'
+        '      "id": "q1",\n'
+        '      "question_number": 1,\n'
+        f'      "question_type": "{act_type.value}",\n'
+        '      "content": { ...activity-type specific content payload... },\n'
+        '      "hints": ["Hint 1", "Hint 2"],\n'
+        '      "explanation": "Brief positive explanation",\n'
+        '      "weight": 1.0\n'
+        '    }\n'
+        f'    ... exactly {q_count} distinct questions numbered 1 to {q_count} with unique IDs\n'
+        '  ],\n'
         '  "hints": ["Hint 1 (nudge)", "Hint 2 (clue)", "Hint 3 (direct)"],\n'
         f'  "scaffolding_level": {spec.scaffolding_level}\n'
         "}\n"
@@ -441,3 +454,193 @@ def build_activity_generation_messages(
         Message(role=MessageRole.SYSTEM, content=compiled.system_prompt),
         Message(role=MessageRole.USER, content=compiled.user_prompt),
     ]
+
+
+def compile_instructional_prompt(
+    objective_title: str,
+    objective_description: str | None = None,
+    explanation_method: str = "step_by_step",
+    difficulty_level: int = 1,
+    language: str = "en",
+    authoritative_content: dict[str, Any] | None = None,
+    grounding_chunks: list[Any] | None = None,
+    learner_context: dict[str, Any] | None = None,
+    teacher_instructions: str | None = None,
+) -> EffectiveGenerationPrompt:
+    """
+    Structured Prompt Compiler for Instructional Content (Explanation & Modeling).
+
+    Generates non-evaluative instructional explanation blocks without scores,
+    correctness keys, or pass/fail mechanics.
+    """
+    sections: dict[str, str] = {}
+
+    # 1. SYSTEM RULES (Immutable)
+    sections["SYSTEM RULES"] = (
+        "You are Eduvia's expert pedagogical Instructional Content Engine.\n"
+        "Your role is to teach, explain, and model concepts clearly and calmly.\n\n"
+        "CORE INSTRUCTIONAL INVARIANTS:\n"
+        "1. Strictly Non-Evaluative: Do NOT include quiz questions, test items, answer keys, or correctness checks.\n"
+        "2. Cognitive Calm: Use serene, uncluttered language with predictable formatting and zero sensory overload.\n"
+        "3. Concrete Grounding: Keep explanations grounded strictly in real curriculum facts and verifiable concepts.\n"
+        "4. Accessible Delivery: Use clear visual cues (emojis, icons) and short, readable sentences.\n"
+        "5. Language Fidelity: All titles, text bodies, visual cues, and summaries must be in the specified language.\n"
+        "6. No Clinical Claims: Never make diagnostic, clinical, or medical assertions."
+    )
+
+    # 2. CURRICULUM CONTEXT
+    sections["CURRICULUM CONTEXT"] = (
+        f"- Objective Title: {objective_title}\n"
+        f"- Objective Description: {objective_description or 'Foundational conceptual understanding.'}\n"
+        f"- Target Difficulty Level: Level {difficulty_level} (1=basic, 5=advanced)"
+    )
+
+    # 3. METHOD GUIDANCE
+    method_guidelines = {
+        "visual_explanation": (
+            "EXPLANATION METHOD: VISUAL EXPLANATION\n"
+            "- Focus on concrete visual representation, high-contrast imagery, and spatial clarity.\n"
+            "- Use 'visual_cue' blocks depicting concrete objects and clear spatial arrangements.\n"
+            "- Emphasize observational descriptions and visual anchors."
+        ),
+        "step_by_step": (
+            "EXPLANATION METHOD: STEP-BY-STEP (Task Analysis)\n"
+            "- Break down the concept into 2 to 4 sequential, digestible steps.\n"
+            "- Use 'step' block_types with sequential numbering.\n"
+            "- Guide the learner step-by-step from initial perception to completed understanding."
+        ),
+        "worked_example": (
+            "EXPLANATION METHOD: WORKED EXAMPLE (Cognitive Modeling)\n"
+            "- Demonstrate a complete concrete example from start to finish.\n"
+            "- Use 'worked_example' block_type showing the scenario, the thought process, and the clear solution.\n"
+            "- Explain 'why' each part makes sense calmly and clearly."
+        ),
+        "text_explanation": (
+            "EXPLANATION METHOD: SIMPLE TEXT EXPLANATION\n"
+            "- Provide a clear, gentle narrative explanation using accessible vocabulary.\n"
+            "- Use 'heading', 'text', and 'callout' block_types.\n"
+            "- Focus on concise definitions and friendly real-world analogies."
+        ),
+    }
+    sections["METHOD GUIDANCE"] = method_guidelines.get(
+        explanation_method,
+        f"EXPLANATION METHOD: {explanation_method}\nDeliver clear, accessible instructional modeling."
+    )
+
+    # 4. AUTHORITATIVE CONTENT
+    if authoritative_content:
+        sections["AUTHORITATIVE CONTENT"] = (
+            f"- Topic Fact/Prompt: {authoritative_content.get('prompt')}\n"
+            f"- Ground Truth: {authoritative_content.get('correct_answer')}\n"
+            "- Invariant: Maintain perfect factual fidelity to this curriculum ground truth."
+        )
+    else:
+        sections["AUTHORITATIVE CONTENT"] = (
+            "- Ground explanations in verifiable mathematical, literacy, or everyday life facts."
+        )
+
+    # 5. RAG GUIDANCE
+    grounding_sources_summary: list[dict[str, Any]] = []
+    if grounding_chunks:
+        rag_passages = []
+        for i, chunk in enumerate(grounding_chunks, 1):
+            c_title = getattr(chunk, "document_title", None) or (chunk.get("document_title") if isinstance(chunk, dict) else f"Pedagogical Guideline {i}")
+            c_source = getattr(chunk, "source", None) or (chunk.get("source") if isinstance(chunk, dict) else "knowledge_base.md")
+            c_content = getattr(chunk, "content", None) or (chunk.get("content") if isinstance(chunk, dict) else str(chunk))
+            c_id = getattr(chunk, "chunk_id", None) or (chunk.get("chunk_id") if isinstance(chunk, dict) else f"chunk_{i}")
+            c_score = getattr(chunk, "score", None) or (chunk.get("score") if isinstance(chunk, dict) else 1.0)
+            c_cat = getattr(chunk, "category", None) or (chunk.get("category") if isinstance(chunk, dict) else "pedagogy")
+
+            rag_passages.append(f"[Source {i}: {c_title} ({c_source})]\n{c_content.strip()}")
+            grounding_sources_summary.append({
+                "chunk_id": str(c_id),
+                "title": str(c_title),
+                "source": str(c_source),
+                "category": str(c_cat),
+                "score": float(c_score),
+                "excerpt": str(c_content)[:200],
+            })
+        sections["RAG GUIDANCE"] = "Pedagogical knowledge for this instructional topic:\n" + "\n\n".join(rag_passages)
+    else:
+        sections["RAG GUIDANCE"] = (
+            "Evidence-based Universal Design for Learning (UDL) principles:\n"
+            "- Multi-modal representation with visual anchors.\n"
+            "- Explicit scaffolding and chunked information."
+        )
+
+    # 6. TEACHER INSTRUCTIONS
+    t_inst = (teacher_instructions or "").strip()
+    if not t_inst:
+        t_inst = "Deliver standard, accessible instructional explanation suitable for young learners."
+    sections["TEACHER INSTRUCTIONS"] = t_inst
+
+    # 7. OUTPUT JSON CONTRACT (Immutable)
+    sections["OUTPUT JSON CONTRACT"] = (
+        "Respond with a single JSON object conforming to the following structure:\n"
+        "{\n"
+        f'  "title": "Clear calm title for {objective_title}",\n'
+        f'  "explanation_method": "{explanation_method}",\n'
+        '  "summary": "1-2 sentence calm summary of what was learned",\n'
+        '  "blocks": [\n'
+        '    {\n'
+        '      "id": "block_1",\n'
+        '      "block_type": "heading",\n'
+        '      "title": "Block Title",\n'
+        '      "body": "Informative text explaining the concept",\n'
+        '      "visual_cue": "🌟",\n'
+        '      "order_index": 1,\n'
+        '      "metadata": {}\n'
+        '    },\n'
+        '    {\n'
+        '      "id": "block_2",\n'
+        f'      "block_type": "{"step" if explanation_method == "step_by_step" else "text"}",\n'
+        '      "title": "Detailed Step or Concept",\n'
+        '      "body": "Clear step or concept explanation",\n'
+        '      "visual_cue": "🔹",\n'
+        '      "order_index": 2,\n'
+        '      "metadata": {}\n'
+        '    }\n'
+        '  ]\n'
+        "}\n"
+        "Allowed block_type values: heading, text, visual_cue, step, worked_example, callout, audio_script.\n"
+        "Do not wrap in markdown fences or include conversational commentary."
+    )
+
+    preview_blocks = []
+    for title, content in sections.items():
+        preview_blocks.append(f"### {title}\n{content.strip()}")
+    full_prompt_text = "\n\n".join(preview_blocks)
+
+    system_prompt = (
+        sections["SYSTEM RULES"]
+        + "\n\n"
+        + "VERIFIED PEDAGOGICAL GUIDANCE:\n"
+        + sections["RAG GUIDANCE"]
+    )
+    user_prompt = (
+        sections["CURRICULUM CONTEXT"]
+        + "\n\n"
+        + sections["METHOD GUIDANCE"]
+        + "\n\n"
+        + "AUTHORITATIVE TRUTH:\n"
+        + sections["AUTHORITATIVE CONTENT"]
+        + "\n\n"
+        + "TEACHER INSTRUCTIONS:\n"
+        + sections["TEACHER INSTRUCTIONS"]
+        + "\n\n"
+        + sections["OUTPUT JSON CONTRACT"]
+    )
+
+    return EffectiveGenerationPrompt(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        full_prompt_text=full_prompt_text,
+        sections=sections,
+        teacher_editable_section=t_inst,
+        immutable_sections=["SYSTEM RULES", "CURRICULUM CONTEXT", "AUTHORITATIVE CONTENT", "OUTPUT JSON CONTRACT"],
+        grounding_sources=grounding_sources_summary,
+        content_bank_grounded=authoritative_content is not None,
+        objective_title=objective_title,
+        activity_type=explanation_method,
+        difficulty_level=difficulty_level,
+    )

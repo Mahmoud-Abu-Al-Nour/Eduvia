@@ -42,8 +42,14 @@ class Settings(BaseSettings):
 
     # ── AI Provider (Gemini) ──────────────────────────────────────────
     GEMINI_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.0-flash-exp"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     GEMINI_EMBEDDING_MODEL: str = "text-embedding-004"
+
+    # ── Research Mode Resource Limits ─────────────────────────────────
+    MAX_RESEARCH_QUESTIONS: int = 50
+    MAX_RESEARCH_PROMPT_LENGTH: int = 20000
+    MAX_RESEARCH_OUTPUT_TOKENS: int = 8192
+    MAX_RESEARCH_GENERATIONS_PER_REQUEST: int = 5
 
     # ── JWT Authentication ────────────────────────────────────────────
     JWT_SECRET: str

@@ -31,6 +31,12 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class UserAdminUpdate(UserUpdate):
+    """Schema for admin updating a user profile including role and active status."""
+
+    pass
+
+
 class UserResponse(UserBase):
     """Schema for returning user data (excluding password)."""
 
@@ -39,3 +45,14 @@ class UserResponse(UserBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PlatformStatsResponse(BaseModel):
+    """Platform-level KPI stats for Admin dashboard."""
+
+    total_users: int
+    total_admins: int
+    total_teachers: int
+    total_learners: int
+    total_curricula: int
+    total_activities_completed: int

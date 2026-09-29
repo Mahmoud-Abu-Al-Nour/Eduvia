@@ -41,6 +41,20 @@ class AnalyticsService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    def _check_learner_access(self, learner: Learner, requesting_user: User | None) -> None:
+        """Enforce role-aware resource scope: Admin (global), Teacher (assigned), Learner (self)."""
+        if requesting_user is None:
+            return
+        role_val = requesting_user.role.value if hasattr(requesting_user.role, "value") else str(requesting_user.role)
+        if role_val == "admin":
+            return
+        if role_val == "teacher" and learner.teacher_id == requesting_user.id:
+            return
+        if role_val == "learner" and getattr(learner, "user_id", None) == requesting_user.id:
+            return
+        raise AuthorizationError("You do not have permission to view performance data for this learner.")
+
+
     async def record_performance_event(
         self,
         event_in: PerformanceEventCreate,
@@ -89,6 +103,7 @@ class AnalyticsService:
             id=uuid.uuid4(),
             learner_id=event_in.learner_id,
             activity_id=event_in.activity_id,
+            question_id=event_in.question_id,
             attempt_id=event_in.attempt_id,
             objective_id=event_in.objective_id,
             activity_type=event_in.activity_type.value,
@@ -170,10 +185,8 @@ class AnalyticsService:
         if not learner:
             raise NotFoundError(f"Learner with id '{learner_id}' not found.")
 
-        # Authorization check: teachers can only view their own learners
-        if requesting_user is not None:
-            if requesting_user.role != "admin" and learner.teacher_id != requesting_user.id:
-                raise AuthorizationError("You do not have permission to view performance data for this learner.")
+        # Authorization check: teachers view assigned learners; learners view self; admin views all
+        self._check_learner_access(learner, requesting_user)
 
         query = select(PerformanceEvent).where(PerformanceEvent.learner_id == learner_id)
 
@@ -205,12 +218,12 @@ class AnalyticsService:
         if not event:
             raise NotFoundError(f"Performance event '{event_id}' not found.")
 
-        if requesting_user is not None and requesting_user.role != "admin":
+        if requesting_user is not None:
             learner_stmt = select(Learner).where(Learner.id == event.learner_id)
             learner_res = await self.session.execute(learner_stmt)
             learner = learner_res.scalars().first()
-            if learner and learner.teacher_id != requesting_user.id:
-                raise AuthorizationError("You do not have permission to view this performance event.")
+            if learner:
+                self._check_learner_access(learner, requesting_user)
 
         return event
 
@@ -229,9 +242,7 @@ class AnalyticsService:
         if not learner:
             raise NotFoundError(f"Learner with id '{learner_id}' not found.")
 
-        if requesting_user is not None and requesting_user.role != "admin":
-            if learner.teacher_id != requesting_user.id:
-                raise AuthorizationError("You do not have permission to view analytics for this learner.")
+        self._check_learner_access(learner, requesting_user)
 
         query = (
             select(PerformanceEvent)
@@ -258,16 +269,21 @@ class AnalyticsService:
             )
 
         total_events = len(events)
-        completed_activities = sum(1 for e in events if e.completed)
+        # Distinct completed activities or authoritative attempts to prevent question inflation
+        completed_attempts = {e.attempt_id for e in events if e.completed and e.attempt_id is not None}
+        if completed_attempts:
+            completed_activities = len(completed_attempts)
+        else:
+            completed_activities = len({e.activity_id for e in events if e.completed and e.activity_id is not None})
         correct_count = sum(1 for e in events if e.correct)
         overall_accuracy = round(correct_count / total_events, 4)
-        avg_score = round(sum(e.score for e in events) / total_events, 4)
-        avg_response_time_ms = round(sum(e.response_time_ms for e in events) / total_events, 2)
-        avg_hints_per_activity = round(sum(e.hints_used for e in events) / total_events, 2)
-        avg_assistance_level = round(sum(e.assistance_level for e in events) / total_events, 2)
+        avg_score = round(sum((e.score or 0.0) for e in events) / total_events, 4)
+        avg_response_time_ms = round(sum((e.response_time_ms or 0) for e in events) / total_events, 2)
+        avg_hints_per_activity = round(sum((e.hints_used or 0) for e in events) / total_events, 2)
+        avg_assistance_level = round(sum((e.assistance_level or 0) for e in events) / total_events, 2)
 
         # Modality breakdown
-        modalities = sorted(list({e.modality for e in events}))
+        modalities = sorted(list({e.modality for e in events if e.modality}))
         modality_breakdown: list[ModalityMetrics] = []
         for mod in modalities:
             mod_events = [e for e in events if e.modality == mod]
@@ -278,14 +294,14 @@ class AnalyticsService:
                     modality=mod,
                     total_events=mod_total,
                     accuracy=round(mod_correct / mod_total, 4) if mod_total else 0.0,
-                    avg_score=round(sum(e.score for e in mod_events) / mod_total, 4) if mod_total else 0.0,
-                    avg_response_time_ms=round(sum(e.response_time_ms for e in mod_events) / mod_total, 2) if mod_total else 0.0,
-                    avg_assistance_level=round(sum(e.assistance_level for e in mod_events) / mod_total, 2) if mod_total else 0.0,
+                    avg_score=round(sum((e.score or 0.0) for e in mod_events) / mod_total, 4) if mod_total else 0.0,
+                    avg_response_time_ms=round(sum((e.response_time_ms or 0) for e in mod_events) / mod_total, 2) if mod_total else 0.0,
+                    avg_assistance_level=round(sum((e.assistance_level or 0) for e in mod_events) / mod_total, 2) if mod_total else 0.0,
                 )
             )
 
         # Activity type breakdown
-        act_types = sorted(list({e.activity_type for e in events}))
+        act_types = sorted(list({e.activity_type for e in events if e.activity_type}))
         activity_type_breakdown: list[ActivityTypeMetrics] = []
         for at in act_types:
             at_events = [e for e in events if e.activity_type == at]
@@ -296,7 +312,7 @@ class AnalyticsService:
                     activity_type=at,
                     total_events=at_total,
                     accuracy=round(at_correct / at_total, 4) if at_total else 0.0,
-                    avg_score=round(sum(e.score for e in at_events) / at_total, 4) if at_total else 0.0,
+                    avg_score=round(sum((e.score or 0.0) for e in at_events) / at_total, 4) if at_total else 0.0,
                 )
             )
 
@@ -330,9 +346,7 @@ class AnalyticsService:
         if not learner:
             raise NotFoundError(f"Learner with id '{learner_id}' not found.")
 
-        if requesting_user is not None and requesting_user.role != "admin":
-            if learner.teacher_id != requesting_user.id:
-                raise AuthorizationError("You do not have permission to view mastery for this learner.")
+        self._check_learner_access(learner, requesting_user)
 
         query = (
             select(PerformanceEvent)
@@ -423,9 +437,7 @@ class AnalyticsService:
         if not learner:
             raise NotFoundError(f"Learner with id '{learner_id}' not found.")
 
-        if requesting_user is not None and requesting_user.role != "admin":
-            if learner.teacher_id != requesting_user.id:
-                raise AuthorizationError("You do not have permission to view progress for this learner.")
+        self._check_learner_access(learner, requesting_user)
 
         query = select(PerformanceEvent).where(PerformanceEvent.learner_id == learner_id)
         if days > 0:

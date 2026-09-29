@@ -41,9 +41,17 @@ class Learner(EduviaBase):
         nullable=True,
         index=True,
     )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
 
     # Relationships
-    teacher: Mapped[Optional["User"]] = relationship(lazy="selectin")
+    teacher: Mapped[Optional["User"]] = relationship(lazy="selectin", foreign_keys=[teacher_id])
+    user: Mapped[Optional["User"]] = relationship(lazy="selectin", foreign_keys=[user_id])
     profile: Mapped["LearnerProfile"] = relationship(
         back_populates="learner",
         cascade="all, delete-orphan",

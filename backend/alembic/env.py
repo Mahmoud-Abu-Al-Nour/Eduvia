@@ -19,6 +19,7 @@ from app.users.models import User  # Phase 1
 from app.curriculum.models import Curriculum, Subject, Unit, Lesson, LearningObjective  # Phase 2
 from app.learners.models import Learner, LearnerProfile  # Phase 3
 from app.analytics.models import ActivityAttempt, PerformanceEvent  # Phase 6
+import app.research.models  # Research Mode
 
 config = context.config
 

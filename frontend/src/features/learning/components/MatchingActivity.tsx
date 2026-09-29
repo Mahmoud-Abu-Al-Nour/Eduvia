@@ -157,7 +157,7 @@ export const MatchingActivity: React.FC<MatchingActivityProps> = ({
       {pairs.length > 0 && (
         <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
           <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-            Connected Pairs ({pairs.length} of {content.pairs.length})
+            Connected Pairs ({pairs.length} of {content.left_items.length})
           </div>
           <div className="flex flex-wrap gap-2">
             {pairs.map((pair, idx) => {

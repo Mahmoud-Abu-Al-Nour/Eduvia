@@ -1,9 +1,10 @@
 import React from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthContext";
+import type { UserRole } from "@/types";
 
 interface ProtectedRouteProps {
-  allowedRoles?: ("admin" | "teacher")[];
+  allowedRoles?: UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
@@ -23,7 +24,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+    if (user.role === "admin") {
+      return <Navigate to="/admin" replace />;
+    } else if (user.role === "learner") {
+      return <Navigate to="/learner" replace />;
+    } else if (user.role === "researcher") {
+      return <Navigate to="/research" replace />;
+    } else {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <Outlet />;

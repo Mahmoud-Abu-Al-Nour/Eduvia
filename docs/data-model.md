@@ -9,13 +9,13 @@ User (Teacher / Admin)
            │                                          │
     LearningSession                              ModalityScore × 5
            │                                    StrategyScore × N
-    ActivityAttempt ─── Activity ─── LearningObjective
+    ActivityAttempt ─── Activity ─── LearningObjective ─── InstructionalContent
            │                               │
     PerformanceEvent              Lesson → Unit → Subject → Curriculum
-                                       │
-                                 KnowledgeDocument → KnowledgeChunk
-                                       │
-                                    (Qdrant)
+     (question_id)                         │
+                                     KnowledgeDocument → KnowledgeChunk
+                                           │
+                                        (Qdrant)
 ```
 
 ---
@@ -159,6 +159,45 @@ LearningObjective
 
 ---
 
+## Instructional Entities
+
+### InstructionalContent
+
+```
+InstructionalContent
+├── id: UUID (PK)
+├── objective_id: UUID (FK → LearningObjective)
+├── title: str
+├── explanation_method: enum[visual_explanation, step_by_step, worked_example, text_explanation]
+├── difficulty_level: int (1–5)
+├── language: str ("en", "ar")
+├── blocks: JSONB                  # Array of InstructionalBlock objects
+├── summary: str | null            # Optional summary/takeaway
+├── status: enum[draft, review_required, approved, published, archived]
+├── teacher_notes: str | null
+├── created_by: UUID | null        # Teacher ID if manual/approved
+├── metadata_info: JSONB           # Generation context / RAG provenance
+├── created_at: datetime
+└── updated_at: datetime
+```
+
+InstructionalBlock (JSONB structure):
+```json
+{
+  "id": "blk-step-1",
+  "block_type": "step",
+  "title": "Count the first group",
+  "body": "Look at the red apples on the left. Tap each one as you count: 1, 2, 3.",
+  "visual_cue": "🍎 🍎 🍎",
+  "order_index": 1,
+  "metadata": {}
+}
+```
+
+*Note: InstructionalContent is strictly non-evaluative. It contains no score, no pass/fail, and no answer truth keys.*
+
+---
+
 ## Activity Entities
 
 ### Activity
@@ -171,16 +210,33 @@ Activity
 ├── modality: enum[visual, reading, writing, audio, interactive]
 ├── strategy: enum[step_by_step, repetition, scaffolding, prompting, simplification, demonstration, positive_reinforcement, gradual_difficulty]
 ├── difficulty: int (1–5)
-├── content: JSONB                 # Activity schema (validated by Pydantic)
+├── questions: ActivityQuestion[]   # 3–10 questions (default 5)
+├── content: JSONB | null          # Legacy 1-question content (for backward compatibility)
 ├── audio_enabled: bool
 ├── generated_by: enum[ai, teacher]
-├── generation_context: JSONB     # What RAG context was used
+├── generation_context: JSONB      # RAG context & ContentBank source keys
 ├── is_active: bool
 ├── created_at: datetime
 └── updated_at: datetime
 ```
 
+ActivityQuestion (Schema):
+```json
+{
+  "id": "q-1",
+  "question_number": 1,
+  "content": { ... },              // Complete modality-specific interaction payload
+  "question_type": "multiple_choice",
+  "content_source_key": "cnt.math.count_apples_5",
+  "hints": ["Count them one by one"],
+  "explanation": "There are 5 apples.",
+  "weight": 1.0
+}
+```
+
 ### ActivityAttempt
+
+Represents **one learner attempt at one complete activity** (not per question).
 
 ```
 ActivityAttempt
@@ -190,9 +246,9 @@ ActivityAttempt
 ├── session_id: UUID
 ├── started_at: datetime
 ├── completed_at: datetime | null
-├── response_data: JSONB          # Raw learner response
-├── score: float | null
-├── completed: bool
+├── response_data: JSONB          # Full submission with per-question answers
+├── score: float | null           # Aggregate overall score across all questions
+├── completed: bool               # Complete activity status
 ├── created_at: datetime
 └── updated_at: datetime
 ```
@@ -203,12 +259,15 @@ ActivityAttempt
 
 ### PerformanceEvent
 
+Represents an atomic interaction event. Question-level events belong to the parent `ActivityAttempt`.
+
 ```
 PerformanceEvent
 ├── id: UUID (PK)
 ├── learner_id: UUID (FK → Learner)
 ├── activity_id: UUID (FK → Activity)
 ├── attempt_id: UUID (FK → ActivityAttempt)
+├── question_id: UUID | null (indexed) # Question identity for item-level analysis
 ├── objective_id: UUID (FK → LearningObjective)
 ├── activity_type: enum
 ├── modality: enum
@@ -223,6 +282,8 @@ PerformanceEvent
 ├── timestamp: datetime
 └── created_at: datetime
 ```
+
+*Note: Completed activity counts are derived strictly from `ActivityAttempt` or distinct activity events so that multiple question-level `PerformanceEvent`s never inflate completed activity counts.*
 
 ---
 

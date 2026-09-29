@@ -46,6 +46,7 @@ class PerformanceEventCreate(BaseModel):
 
     learner_id: uuid.UUID = Field(..., description="Target learner identifier")
     activity_id: uuid.UUID = Field(..., description="Activity instance identifier")
+    question_id: str | None = Field(default=None, description="Identifier of the specific question item")
     attempt_id: uuid.UUID | None = Field(default=None, description="Optional attempt session identifier")
     objective_id: uuid.UUID = Field(..., description="Curriculum learning objective identifier")
     activity_type: ActivityType = Field(..., description="Modality of the activity")
@@ -70,6 +71,7 @@ class PerformanceEventRead(BaseModel):
     id: uuid.UUID
     learner_id: uuid.UUID
     activity_id: uuid.UUID
+    question_id: str | None = None
     attempt_id: uuid.UUID | None = None
     objective_id: uuid.UUID
     activity_type: ActivityType

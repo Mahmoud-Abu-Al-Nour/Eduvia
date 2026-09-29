@@ -41,7 +41,16 @@ export interface AiProviderStatus {
 
 // ── User & Auth Types ──────────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'teacher'
+export type UserRole = 'admin' | 'teacher' | 'learner' | 'researcher'
+
+export interface PlatformStats {
+  total_users: number
+  total_admins: number
+  total_teachers: number
+  total_learners: number
+  total_curricula: number
+  total_activities_completed: number
+}
 
 export interface User {
   id: string
@@ -133,6 +142,7 @@ export interface Learner {
   learning_level: string
   is_active: boolean
   teacher_id?: string | null
+  user_id?: string | null
   created_at: string
   updated_at: string
   profile?: LearnerProfile
@@ -200,7 +210,7 @@ export interface MultipleChoiceOption {
   id: string
   text: string
   visual_cue?: string | null
-  is_correct: boolean
+  is_correct?: boolean
   distractor_rationale?: string | null
 }
 
@@ -208,8 +218,8 @@ export interface MultipleChoiceContent {
   activity_type: 'multiple_choice'
   question: string
   options: MultipleChoiceOption[]
-  correct_answer_id: string
-  explanation: string
+  correct_answer_id?: string
+  explanation?: string
 }
 
 export interface MatchingItem {
@@ -228,7 +238,7 @@ export interface MatchingContent {
   prompt: string
   left_items: MatchingItem[]
   right_items: MatchingItem[]
-  pairs: MatchingPair[]
+  pairs?: MatchingPair[]
 }
 
 export interface OrderingItem {
@@ -241,7 +251,7 @@ export interface OrderingContent {
   activity_type: 'ordering'
   prompt: string
   items: OrderingItem[]
-  correct_sequence: string[]
+  correct_sequence?: string[]
   direction?: 'ascending' | 'descending' | 'chronological' | string
 }
 
@@ -249,7 +259,7 @@ export interface VisualElement {
   id: string
   label: string
   category?: string
-  is_target: boolean
+  is_target?: boolean
   bounding_hint?: string | null
 }
 
@@ -258,8 +268,8 @@ export interface VisualIdentificationContent {
   prompt: string
   scene_description: string
   elements: VisualElement[]
-  target_id: string
-  feedback_clue: string
+  target_id?: string
+  feedback_clue?: string
 }
 
 export interface DragItem {
@@ -279,7 +289,7 @@ export interface DragDropContent {
   prompt: string
   items: DragItem[]
   zones: DropZone[]
-  correct_mapping: Record<string, string>
+  correct_mapping?: Record<string, string>
 }
 
 export type ActivityContent =
@@ -289,6 +299,17 @@ export type ActivityContent =
   | VisualIdentificationContent
   | DragDropContent
 
+export interface ActivityQuestion {
+  id: string
+  question_number: number
+  question_type: ActivityType
+  content: ActivityContent
+  content_source_key?: string | null
+  hints?: string[]
+  explanation?: string | null
+  weight?: number
+}
+
 export interface Activity {
   id: string
   objective_id: string
@@ -296,7 +317,8 @@ export interface Activity {
   title: string
   instructions: string
   difficulty_level: number
-  content: ActivityContent
+  questions?: ActivityQuestion[]
+  content?: ActivityContent
   hints: string[]
   scaffolding_level: number
   metadata?: Record<string, any>
@@ -434,15 +456,32 @@ export type ActivitySubmissionPayload =
   | VisualIdentificationSubmission
   | DragDropSubmission
 
+export interface QuestionSubmission {
+  question_id: string
+  submission: ActivitySubmissionPayload
+}
+
 export interface ActivitySubmissionRequest {
   activity_id: string
   objective_id: string
   activity_type: ActivityType
-  submission: ActivitySubmissionPayload
+  submission?: ActivitySubmissionPayload
+  questions?: QuestionSubmission[]
   learner_id?: string | null
   hints_used: number
   time_spent_seconds: number
   activity_content?: ActivityContent | null
+}
+
+export interface QuestionEvaluationResult {
+  question_id: string
+  question_number: number
+  is_correct: boolean
+  score: number
+  feedback: string
+  explanation?: string | null
+  correct_answer_summary?: Record<string, any>
+  evaluation_details?: Record<string, any>
 }
 
 export interface ActivityEvaluationResponse {
@@ -456,6 +495,11 @@ export interface ActivityEvaluationResponse {
   hints_used: number
   assistance_level: number
   evaluation_details?: Record<string, any>
+  question_results?: QuestionEvaluationResult[]
+  questions_total?: number
+  questions_answered?: number
+  questions_correct?: number
+  percentage?: number
 }
 
 type bool_or_boolean = boolean
@@ -467,6 +511,7 @@ export interface PerformanceEvent {
   id?: string
   learner_id: string
   activity_id: string
+  question_id?: string | null
   attempt_id?: string | null
   objective_id: string
   activity_type: ActivityType
@@ -705,3 +750,241 @@ export interface IEPReport {
   printable_summary_markdown: string
 }
 
+// ── Instructional Content Types ─────────────────────────────────────────────
+
+export type ExplanationMethod =
+  | 'visual_explanation'
+  | 'step_by_step'
+  | 'worked_example'
+  | 'text_explanation'
+
+export type ContentBlockType =
+  | 'heading'
+  | 'text'
+  | 'visual_cue'
+  | 'step'
+  | 'worked_example'
+  | 'callout'
+  | 'audio_script'
+
+export type InstructionalStatus =
+  | 'draft'
+  | 'review_required'
+  | 'approved'
+  | 'published'
+  | 'archived'
+
+export interface InstructionalBlock {
+  id: string
+  block_type: ContentBlockType
+  title?: string | null
+  body: string
+  visual_cue?: string | null
+  order_index: number
+  metadata?: Record<string, any>
+}
+
+export interface InstructionalContent {
+  id: string
+  objective_id: string
+  title: string
+  explanation_method: ExplanationMethod
+  difficulty_level: number
+  language: string
+  blocks: InstructionalBlock[]
+  summary: string
+  status: InstructionalStatus
+  teacher_notes?: string | null
+  created_by?: string | null
+  metadata?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface InstructionalGenerateRequest {
+  objective_id: string
+  explanation_method?: ExplanationMethod
+  difficulty_level?: number
+  language?: string
+  teacher_instructions?: string | null
+}
+
+export interface InstructionalGenerateResponse {
+  content: InstructionalContent
+  fallback_used: boolean
+  generation_source: string
+  grounding_sources: GroundingSource[]
+}
+
+export interface InstructionalContentUpdate {
+  title?: string | null
+  summary?: string | null
+  teacher_notes?: string | null
+  blocks?: InstructionalBlock[] | null
+  status?: InstructionalStatus | null
+}
+
+// ── Research Mode & Sandbox Types ──────────────────────────────────────────
+
+export type ResearchOutputTarget =
+  | 'freeform'
+  | 'instructional_content'
+  | 'question_set'
+  | 'activity'
+  | 'assessment'
+  | 'curriculum'
+  | 'lesson_plan'
+
+export interface ResearchProject {
+  id: string
+  name: string
+  description?: string | null
+  research_question?: string | null
+  hypothesis?: string | null
+  owner_id: string
+  status: string
+  metadata_info?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchExperiment {
+  id: string
+  project_id: string
+  name: string
+  description?: string | null
+  research_question?: string | null
+  hypothesis?: string | null
+  status: string
+  metadata_info?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchVariant {
+  id: string
+  experiment_id: string
+  name: string
+  description?: string | null
+  configuration: Record<string, any>
+  parent_variant_id?: string | null
+  metadata_info?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchRun {
+  id: string
+  variant_id: string
+  model: string
+  model_configuration: Record<string, any>
+  system_prompt?: string | null
+  user_prompt: string
+  input_snapshot?: Record<string, any> | null
+  raw_output?: string | null
+  normalized_output?: Record<string, any> | null
+  status: string
+  error?: string | null
+  parent_run_id?: string | null
+  metadata_info?: Record<string, any>
+  started_at?: string | null
+  completed_at?: string | null
+  created_at: string
+  updated_at: string
+  artifact?: ResearchArtifact | null
+}
+
+export interface ResearchArtifact {
+  id: string
+  run_id: string
+  artifact_type: string
+  schema_version: string
+  payload: Record<string, any>
+  raw_text?: string | null
+  is_production_compatible: boolean
+  compatibility_validation?: Record<string, any> | null
+  promoted_to_production: boolean
+  production_entity_id?: string | null
+  metadata_info?: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchMetric {
+  id: string
+  experiment_id: string
+  name: string
+  description?: string | null
+  metric_type: string
+  configuration: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchEvaluation {
+  id: string
+  artifact_id: string
+  metric_id?: string | null
+  metric_name: string
+  value: Record<string, any>
+  evaluator_type: string
+  evaluator_id: string
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchSnapshot {
+  id: string
+  project_id: string
+  source_type: string
+  source_reference: string
+  snapshot_version: string
+  snapshot_data: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface ResearchModelInfo {
+  id: string
+  name: string
+  description: string
+  is_default: boolean
+}
+
+export interface ResearchGenerationRequest {
+  project_id: string
+  experiment_id: string
+  variant_id: string
+  prompt: string
+  system_prompt?: string | null
+  output_target: ResearchOutputTarget
+  model?: string
+  model_configuration?: Record<string, any>
+  explicit_context?: Record<string, any> | null
+  question_count?: number | null
+  production_compatibility_mode?: boolean
+  target_production_schema?: string | null
+}
+
+export interface VariantComparisonItem {
+  variant: ResearchVariant
+  latest_run?: ResearchRun | null
+  artifact?: ResearchArtifact | null
+  evaluations?: ResearchEvaluation[]
+}
+
+export interface ExperimentComparisonResponse {
+  experiment_id: string
+  experiment_name: string
+  project_id: string
+  metrics: ResearchMetric[]
+  variants: VariantComparisonItem[]
+}
+
+export interface ArtifactPromotionResponse {
+  success: boolean
+  promoted_entity_id?: string | null
+  destination: string
+  message: string
+}

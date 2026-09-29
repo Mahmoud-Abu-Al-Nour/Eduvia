@@ -35,6 +35,15 @@ from app.curriculum.models import (
     objective_prerequisites,
 )
 from app.learners.models import Learner, LearnerProfile
+from app.research.models import (
+    ResearchArtifact,
+    ResearchEvaluation,
+    ResearchExperiment,
+    ResearchMetric,
+    ResearchProject,
+    ResearchRun,
+    ResearchVariant,
+)
 from app.users.models import User, UserRole
 
 
@@ -75,6 +84,64 @@ async def seed_demo_data() -> None:
             print(f"Created demo teacher: {teacher_email}")
         else:
             print(f"Demo teacher already exists: {teacher_email}")
+
+        teacher2_email = "teacher2@eduvia.app"
+        result = await session.execute(select(User).where(User.email == teacher2_email))
+        teacher2 = result.scalars().first()
+        if not teacher2:
+            teacher2 = User(
+                email=teacher2_email,
+                full_name="Bob Teacher (Cohort B)",
+                hashed_password=get_password_hash("strongpassword123"),
+                role=UserRole.teacher,
+                is_active=True,
+            )
+            session.add(teacher2)
+            print(f"Created demo teacher 2: {teacher2_email}")
+
+        learner_user_email = "learner@eduvia.app"
+        result = await session.execute(select(User).where(User.email == learner_user_email))
+        learner_user = result.scalars().first()
+        if not learner_user:
+            learner_user = User(
+                email=learner_user_email,
+                full_name="Tariq Al-Mansoor",
+                hashed_password=get_password_hash("learnerpassword123"),
+                role=UserRole.learner,
+                is_active=True,
+            )
+            session.add(learner_user)
+            print(f"Created demo learner user: {learner_user_email}")
+
+        learner2_user_email = "learner2@eduvia.app"
+        result = await session.execute(select(User).where(User.email == learner2_user_email))
+        learner2_user = result.scalars().first()
+        if not learner2_user:
+            learner2_user = User(
+                email=learner2_user_email,
+                full_name="Laila Hassan",
+                hashed_password=get_password_hash("learnerpassword123"),
+                role=UserRole.learner,
+                is_active=True,
+            )
+            session.add(learner2_user)
+            print(f"Created demo learner 2 user: {learner2_user_email}")
+
+        researcher_email = "researcher@eduvia.app"
+        result = await session.execute(select(User).where(User.email == researcher_email))
+        researcher = result.scalars().first()
+        if not researcher:
+            researcher = User(
+                email=researcher_email,
+                full_name="Dr. Elena Vance (Researcher)",
+                hashed_password=get_password_hash("researcherpassword123"),
+                role=UserRole.researcher,
+                is_active=True,
+            )
+            session.add(researcher)
+            print(f"Created demo researcher user: {researcher_email}")
+        else:
+            print(f"Demo researcher already exists: {researcher_email}")
 
         await session.flush()
 
@@ -202,7 +269,7 @@ async def seed_demo_data() -> None:
                     correct_answer=item.correct_answer,
                     hints=item.hints,
                     metadata_info=item.metadata_info,
-                    is_active=item.is_active,
+                    is_active=getattr(item, "is_active", True),
                 )
                 session.add(content_row)
                 seeded_content_count += 1
@@ -221,6 +288,7 @@ async def seed_demo_data() -> None:
                 learning_level="beginner",
                 is_active=True,
                 teacher_id=teacher.id,
+                user_id=learner_user.id,
             )
             session.add(demo_learner)
             await session.flush()
@@ -266,6 +334,192 @@ async def seed_demo_data() -> None:
             print(f"Created demo learner and profile: {learner_name}")
         else:
             print(f"Demo learner already exists: {learner_name}")
+
+        # Seed Cohort B learner (Laila Hassan)
+        learner2_name = "Laila Hassan"
+        result = await session.execute(select(Learner).where(Learner.name == learner2_name))
+        existing_learner2 = result.scalars().first()
+        if not existing_learner2:
+            demo_learner2 = Learner(
+                name=learner2_name,
+                age_group="primary",
+                learning_level="beginner",
+                is_active=True,
+                teacher_id=teacher2.id,
+                user_id=learner2_user.id,
+            )
+            session.add(demo_learner2)
+            await session.flush()
+
+            demo_profile2 = LearnerProfile(
+                learner_id=demo_learner2.id,
+                communication_preferences={
+                    "primary_mode": "visual_assisted",
+                    "receptive_preference": ["visual_cues"],
+                    "expressive_preference": ["verbal"],
+                    "notes": "Prefers visual cues.",
+                },
+                current_skill_level={
+                    "literacy_stage": "emerging",
+                    "numeracy_stage": "emerging",
+                    "attention_span_minutes": 12,
+                    "strengths": ["visual memory"],
+                    "focus_areas": ["letter sounds"],
+                },
+                support_requirements={
+                    "sensory_accommodations": ["high_contrast"],
+                    "pacing": "standard",
+                    "guidance_level": "moderate",
+                    "frequent_breaks": False,
+                },
+                teacher_constraints={
+                    "max_session_duration_minutes": 15,
+                    "excluded_modalities": [],
+                    "required_modalities": ["Visual"],
+                    "custom_guidelines": "",
+                },
+                teacher_notes="Cohort B learner assigned to Bob Teacher.",
+                teacher_overrides={},
+                modality_effectiveness={"visual": 0.80, "interactive": 0.70},
+                strategy_effectiveness={"scaffolded_hints": 0.85},
+                activity_type_effectiveness={"matching": 0.88},
+                difficulty_tolerance=1.0,
+                assistance_requirements={"preferred_prompt_hierarchy": "least_to_most"},
+                response_behavior={"typical_latency_seconds": 4.1},
+                observations={"recorded_by": "Bob Teacher", "date": "2026-09-21"},
+            )
+            session.add(demo_profile2)
+            print(f"Created demo learner 2 and profile: {learner2_name}")
+        # ── 5. Seed Research Sandbox Demo Entities ───────────────────────────
+        res_proj_name = "Multi-Modal Pedagogical Strategies"
+        result = await session.execute(select(ResearchProject).where(ResearchProject.name == res_proj_name))
+        res_project = result.scalars().first()
+        if not res_project:
+            res_project = ResearchProject(
+                name=res_proj_name,
+                description="Sandbox investigation into multi-modal scaffolds vs text-only explanations.",
+                research_question="Does visual cueing combined with step-by-step guidance increase conceptual comprehension compared to text-only explanations?",
+                hypothesis="Learners exposed to multi-modal visual steps will demonstrate higher accuracy.",
+                owner_id=researcher.id,
+                status="active",
+                metadata_info={"domain": "special_education", "phase": "pilot"},
+            )
+            session.add(res_project)
+            await session.flush()
+
+            res_exp = ResearchExperiment(
+                project_id=res_project.id,
+                name="Visual vs Text Scaffolding in Early Literacy",
+                description="Comparing 5-question multi-modal activities against homogeneous text activities.",
+                research_question="How does visual cue placement affect distraction vs engagement?",
+                hypothesis="Embedded visual icons reduce question completion time by 20%.",
+                status="active",
+                metadata_info={},
+            )
+            session.add(res_exp)
+            await session.flush()
+
+            metric_clarity = ResearchMetric(
+                experiment_id=res_exp.id,
+                name="Instructional Clarity",
+                description="Clarity and readability of explanatory text (1-5 scale).",
+                metric_type="rating",
+                configuration={"min": 1, "max": 5},
+            )
+            metric_cognitive = ResearchMetric(
+                experiment_id=res_exp.id,
+                name="Cognitive Load Estimate",
+                description="Perceived visual complexity and prompt length.",
+                metric_type="rating",
+                configuration={"min": 1, "max": 5},
+            )
+            session.add(metric_clarity)
+            session.add(metric_cognitive)
+            await session.flush()
+
+            var_a = ResearchVariant(
+                experiment_id=res_exp.id,
+                name="Variant A: Visual Scaffolding (5 Questions)",
+                description="Includes visual icon cues, step-by-step breakdown, and pictorial choices.",
+                configuration={
+                    "model": "gemini-2.5-flash",
+                    "temperature": 0.3,
+                    "scaffolding_style": "visual_assisted",
+                    "question_count": 5,
+                },
+                metadata_info={},
+            )
+            var_b = ResearchVariant(
+                experiment_id=res_exp.id,
+                name="Variant B: Text-Only Scaffolding (5 Questions)",
+                description="Pure text explanations without visual cues.",
+                configuration={
+                    "model": "gemini-2.5-flash",
+                    "temperature": 0.7,
+                    "scaffolding_style": "text_only",
+                    "question_count": 5,
+                },
+                parent_variant_id=var_a.id,
+                metadata_info={"cloned_from": "Variant A"},
+            )
+            session.add(var_a)
+            session.add(var_b)
+            await session.flush()
+
+            sample_run = ResearchRun(
+                variant_id=var_a.id,
+                model="gemini-2.5-flash",
+                model_configuration={"temperature": 0.3, "max_output_tokens": 2048},
+                system_prompt="You are an educational researcher evaluating visual scaffolding.",
+                user_prompt="Generate 5 phonemic awareness questions pairing sound with visual cues.",
+                status="completed",
+                started_at=datetime.now(timezone.utc),
+                completed_at=datetime.now(timezone.utc),
+                raw_output='{"assessment_title": "Visual Phonemic Scaffolding", "question_count": 5, "items": [{"id": "q1", "prompt": "Which item starts with the /b/ sound?", "visual_cue": "image_bell", "choices": ["Bell", "Cat", "Sun"], "answer": "Bell"}]}',
+                normalized_output={
+                    "assessment_title": "Visual Phonemic Scaffolding",
+                    "question_count": 5,
+                    "items": [
+                        {
+                            "id": "q1",
+                            "prompt": "Which item starts with the /b/ sound?",
+                            "visual_cue": "image_bell",
+                            "choices": ["Bell", "Cat", "Sun"],
+                            "answer": "Bell",
+                        }
+                    ],
+                },
+                metadata_info={"execution_time_ms": 320.5},
+            )
+            session.add(sample_run)
+            await session.flush()
+
+            sample_artifact = ResearchArtifact(
+                run_id=sample_run.id,
+                artifact_type="assessment",
+                schema_version="1.0",
+                payload=sample_run.normalized_output,
+                raw_text=sample_run.raw_output,
+                is_production_compatible=False,
+                promoted_to_production=False,
+                metadata_info={},
+            )
+            session.add(sample_artifact)
+            await session.flush()
+
+            sample_eval = ResearchEvaluation(
+                artifact_id=sample_artifact.id,
+                metric_id=metric_clarity.id,
+                metric_name="Instructional Clarity",
+                value={"score": 5, "max": 5},
+                evaluator_type="manual",
+                evaluator_id=researcher.id,
+                notes="Excellent visual alignment and distinct sound associations.",
+            )
+            session.add(sample_eval)
+            print(f"Created demo research project, experiment, variants, run, and artifact: {res_proj_name}")
+        else:
+            print(f"Demo research project already exists: {res_proj_name}")
 
         await session.commit()
     await engine.dispose()

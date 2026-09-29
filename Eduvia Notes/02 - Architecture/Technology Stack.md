@@ -8,7 +8,7 @@
 | **Database Driver** | asyncpg | >= 0.30.0 | High-performance asynchronous PostgreSQL client library. |
 | **Relational Database**| PostgreSQL | 16-alpine | Enterprise ACID compliance, native JSONB support for localization. |
 | **Vector Database** | Qdrant | latest | High-speed vector similarity search, robust filtering for RAG knowledge. |
-| **AI / LLM** | Google Gemini API | gemini-1.5 | Structured JSON output capability, generous context window, multimodal. |
+| **AI / LLM** | Google Gemini API | gemini-3.8 / gemini-2.5 | Structured JSON output capability, generous context window, multimodal. |
 | **Frontend Framework**| React | 19.x | Modern concurrent rendering, clean component lifecycle. |
 | **Frontend Language** | TypeScript | 5.x / 6.x | Strict type safety, shared domain interfaces with backend. |
 | **Build Tooling** | Vite | 5.4.x | Fast HMR development server, optimized ES module production bundling. |

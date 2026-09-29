@@ -127,7 +127,20 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """Handle Pydantic request validation errors."""
-    errors = exc.errors()
+    from fastapi.encoders import jsonable_encoder
+
+    try:
+        errors = jsonable_encoder(exc.errors())
+    except Exception:
+        errors = [
+            {
+                "loc": list(err.get("loc", ())),
+                "msg": str(err.get("msg", "")),
+                "type": str(err.get("type", "")),
+            }
+            for err in exc.errors()
+        ]
+
     logger.info(
         "validation_error",
         errors=errors,
@@ -139,5 +152,6 @@ async def validation_exception_handler(
             "error": "validation_error",
             "message": "The request contains invalid data.",
             "details": errors,
+            "detail": errors,
         },
     )

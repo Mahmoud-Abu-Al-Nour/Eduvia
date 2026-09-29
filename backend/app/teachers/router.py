@@ -1,8 +1,9 @@
 """
-Eduvia — Teacher Insights & Dashboard API Router (Phase 10)
+Eduvia — Teacher Insights & Dashboard API Router (Phase 10 & RBAC Extension)
 
 REST API endpoints for teacher overview dashboard, cohort aggregations,
 deterministic intervention alerts, and IEP progress reports.
+Protected with centralized TEACHERS_DASHBOARD permission.
 """
 
 from __future__ import annotations
@@ -12,8 +13,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.auth.dependencies import SessionDep, get_current_user
-from app.core.errors import AuthorizationError, NotFoundError, ValidationError
+from app.auth.dependencies import SessionDep, require_permission
+from app.auth.permissions import Permission
+from app.core.errors import AuthorizationError, NotFoundError
 from app.teachers.schemas import (
     CohortInsights,
     IEPReport,
@@ -38,7 +40,7 @@ def get_teacher_dashboard_service(session: SessionDep) -> TeacherDashboardServic
     description="Returns high-level active student counts, 7-day activities, cohort accuracy, and active alerts.",
 )
 async def get_teacher_dashboard(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission(Permission.TEACHERS_DASHBOARD))],
     service: Annotated[TeacherDashboardService, Depends(get_teacher_dashboard_service)],
 ) -> TeacherDashboardOverview:
     try:
@@ -57,7 +59,7 @@ async def get_teacher_dashboard(
     description="Returns class-wide modality distributions, mastery distributions, and individual student progress summaries.",
 )
 async def get_cohort_insights(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission(Permission.TEACHERS_DASHBOARD))],
     service: Annotated[TeacherDashboardService, Depends(get_teacher_dashboard_service)],
     days: int = Query(default=30, ge=0, le=365, description="Reporting period in days (0 for all-time)"),
 ) -> CohortInsights:
@@ -77,7 +79,7 @@ async def get_cohort_insights(
     description="Returns rule-based educational signals requiring teacher intervention across assigned learners.",
 )
 async def get_intervention_alerts(
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission(Permission.TEACHERS_DASHBOARD))],
     service: Annotated[TeacherDashboardService, Depends(get_teacher_dashboard_service)],
     learner_id: uuid.UUID | None = Query(default=None, description="Filter alerts by specific learner ID"),
 ) -> list[InterventionAlert]:
@@ -98,7 +100,7 @@ async def get_intervention_alerts(
 )
 async def get_learner_iep_report(
     learner_id: uuid.UUID,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(require_permission(Permission.TEACHERS_DASHBOARD))],
     service: Annotated[TeacherDashboardService, Depends(get_teacher_dashboard_service)],
     days: int = Query(default=30, ge=0, le=365, description="Reporting window in days (0 for all-time)"),
 ) -> IEPReport:

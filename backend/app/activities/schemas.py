@@ -19,7 +19,7 @@ import uuid
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ActivityType(StrEnum):
@@ -41,7 +41,7 @@ class MultipleChoiceOption(BaseModel):
     id: str = Field(..., description="Unique identifier for the option (e.g., 'opt_1')")
     text: str = Field(..., min_length=1, description="Text displayed to the learner")
     visual_cue: str | None = Field(default=None, description="Optional icon or visual representation")
-    is_correct: bool = Field(..., description="Whether this option is the correct answer")
+    is_correct: bool = Field(default=False, description="Whether this option is the correct answer")
     distractor_rationale: str | None = Field(
         default=None,
         description="Teacher/system rationale for why this distractor is pedagogically informative",
@@ -57,9 +57,9 @@ class MultipleChoiceContent(BaseModel):
     options: list[MultipleChoiceOption] = Field(
         ..., min_length=2, max_length=5, description="Selectable options (2-5 options to prevent cognitive overload)"
     )
-    correct_answer_id: str = Field(..., description="ID of the correct option")
+    correct_answer_id: str = Field(default="", description="ID of the correct option")
     explanation: str = Field(
-        ..., min_length=1, description="Calm, encouraging explanation revealed after response"
+        default="", description="Calm, encouraging explanation revealed after response"
     )
 
 
@@ -95,7 +95,7 @@ class MatchingContent(BaseModel):
     right_items: list[MatchingItem] = Field(
         ..., min_length=2, max_length=5, description="Items displayed on the right"
     )
-    pairs: list[MatchingPair] = Field(..., min_length=2, max_length=5, description="Correct left-right pairs")
+    pairs: list[MatchingPair] = Field(default_factory=list, description="Correct left-right pairs")
 
 
 # ── Modality 3: Ordering ─────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ class OrderingContent(BaseModel):
         ..., min_length=3, max_length=6, description="Items to arrange (3-6 items)"
     )
     correct_sequence: list[str] = Field(
-        ..., min_length=3, max_length=6, description="List of item IDs in the correct order"
+        default_factory=list, description="List of item IDs in the correct order"
     )
     direction: str = Field(
         default="ascending",
@@ -138,7 +138,7 @@ class VisualElement(BaseModel):
     id: str = Field(..., description="Element identifier")
     label: str = Field(..., min_length=1, description="Name or descriptive label")
     category: str = Field(default="general", description="Category of element")
-    is_target: bool = Field(..., description="Whether this is the element the learner should identify")
+    is_target: bool = Field(default=False, description="Whether this is the element the learner should identify")
     bounding_hint: str | None = Field(
         default=None,
         description="Position hint in the scene (e.g., 'top-left', 'center', 'on the table')",
@@ -157,9 +157,9 @@ class VisualIdentificationContent(BaseModel):
     elements: list[VisualElement] = Field(
         ..., min_length=2, max_length=6, description="Elements present in the scene"
     )
-    target_id: str = Field(..., description="ID of the target element")
+    target_id: str = Field(default="", description="ID of the target element")
     feedback_clue: str = Field(
-        ..., min_length=1, description="Gentle hint guiding learner attention toward the target"
+        default="", description="Gentle hint guiding learner attention toward the target"
     )
 
 
@@ -197,7 +197,7 @@ class DragDropContent(BaseModel):
         ..., min_length=2, max_length=4, description="Target buckets/zones"
     )
     correct_mapping: dict[str, str] = Field(
-        ..., description="Map of drag item ID -> target zone ID"
+        default_factory=dict, description="Map of drag item ID -> target zone ID"
     )
 
 
@@ -215,7 +215,24 @@ ActivityContent = Annotated[
 ]
 
 
-# ── Canonical Activity Entity ────────────────────────────────────────────────
+# ── Question Entity & Canonical Activity Container ───────────────────────────
+
+
+class ActivityQuestion(BaseModel):
+    """
+    Discrete interactive question item within an Activity container.
+    Wraps the modality-specific interaction payload without duplicating prompt fields.
+    """
+    model_config = ConfigDict(frozen=True)
+
+    id: str = Field(..., description="Stable unique identifier for this question")
+    question_number: int = Field(..., ge=1, description="1-indexed sequence order within the activity")
+    question_type: ActivityType = Field(..., description="Modality of this specific question")
+    content: ActivityContent = Field(..., description="Modality-specific interactive payload (options, pairs, zones, etc.)")
+    content_source_key: str | None = Field(default=None, description="Authoritative ContentBank provenance key")
+    hints: list[str] = Field(default_factory=list, description="Scaffolding hints specific to this question")
+    explanation: str | None = Field(default=None, description="Pedagogical explanation revealed post-evaluation")
+    weight: float = Field(default=1.0, ge=0.1, le=5.0, description="Relative score weight")
 
 
 class Activity(BaseModel):
@@ -224,16 +241,21 @@ class Activity(BaseModel):
     
     Guarantees deterministic, validated output for frontend rendering,
     whether generated via Gemini or constructed by deterministic fallback.
+    Supports both multi-question containers (default) and single-question legacy consumers.
     """
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, description="Unique activity instance ID")
     objective_id: uuid.UUID | str = Field(..., description="Associated learning objective ID or slug")
-    activity_type: ActivityType = Field(..., description="Modality of this activity")
+    activity_type: ActivityType = Field(..., description="Primary modality of this activity")
     title: str = Field(..., min_length=1, description="Short, friendly title")
     instructions: str = Field(..., min_length=1, description="Clear, sensory-appropriate directions")
     difficulty_level: int = Field(default=1, ge=1, le=5, description="Difficulty level 1-5")
-    content: ActivityContent = Field(..., description="Type-specific structured activity payload")
+    questions: list[ActivityQuestion] = Field(default_factory=list, description="Ordered question items in this activity")
+    content: ActivityContent | None = Field(
+        default=None,
+        description="Deprecated: for single-question legacy consumers. Mirrors questions[0].content.",
+    )
     hints: list[str] = Field(
         default_factory=list,
         description="Faded scaffolding hints (level 1 subtle, level 2 guided, level 3 explicit)",
@@ -243,6 +265,316 @@ class Activity(BaseModel):
         default_factory=dict,
         description="Generation metadata (e.g. provider, model, latency, fallback_used)",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def synchronize_questions_and_content(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            questions = data.get("questions")
+            content = data.get("content")
+            act_type = data.get("activity_type")
+            if (not questions or len(questions) == 0) and content is not None:
+                # Wrap legacy single content into a question
+                q_type = act_type
+                if isinstance(content, dict):
+                    q_type = content.get("activity_type")
+                elif hasattr(content, "activity_type"):
+                    q_type = getattr(content, "activity_type", None)
+                if not q_type:
+                    q_type = ActivityType.MULTIPLE_CHOICE
+                data["questions"] = [
+                    {
+                        "id": "q_1",
+                        "question_number": 1,
+                        "question_type": q_type,
+                        "content": content,
+                        "content_source_key": data.get("metadata", {}).get("content_source_key") if isinstance(data.get("metadata"), dict) else None,
+                        "hints": data.get("hints") or [],
+                        "explanation": content.get("explanation") if isinstance(content, dict) else getattr(content, "explanation", None),
+                        "weight": 1.0,
+                    }
+                ]
+            elif questions and len(questions) > 0 and content is None:
+                first_q = questions[0]
+                data["content"] = first_q.get("content") if isinstance(first_q, dict) else getattr(first_q, "content", None)
+        return data
+
+    @model_validator(mode="after")
+    def validate_homogeneous_modalities(self) -> Activity:
+        for q in self.questions:
+            if q.question_type != self.activity_type:
+                raise ValueError(
+                    f"Question {q.id} modality '{q.question_type.value}' does not match activity modality '{self.activity_type.value}'"
+                )
+        return self
+
+    def to_learner_safe(self) -> LearnerActivity:
+        """Produce a learner-safe representation with all answer keys completely stripped."""
+        safe_questions: list[LearnerActivityQuestion] = []
+        for q in self.questions:
+            safe_content = _sanitize_content_to_learner_safe(q.content)
+            safe_questions.append(
+                LearnerActivityQuestion(
+                    id=q.id,
+                    question_number=q.question_number,
+                    question_type=q.question_type,
+                    content=safe_content,
+                    hints=list(q.hints or []),
+                    weight=q.weight,
+                )
+            )
+
+        top_safe_content = (
+            safe_questions[0].content
+            if safe_questions
+            else (_sanitize_content_to_learner_safe(self.content) if self.content else None)
+        )
+
+        return LearnerActivity(
+            id=self.id,
+            objective_id=self.objective_id,
+            activity_type=self.activity_type,
+            title=self.title,
+            instructions=self.instructions,
+            difficulty_level=self.difficulty_level,
+            questions=safe_questions,
+            content=top_safe_content,
+            hints=list(self.hints or []),
+            scaffolding_level=self.scaffolding_level,
+            metadata={
+                k: v for k, v in (self.metadata or {}).items()
+                if not k.startswith("internal_") and k not in ("correct_answer", "answer_key")
+            },
+        )
+
+
+# ── Learner-Safe Response Schemas (Zero Answer-Truth Exposure) ───────────────
+
+
+class LearnerMultipleChoiceOption(BaseModel):
+    """Learner-facing selectable option (no answer key or distractor rationale)."""
+    model_config = ConfigDict(frozen=True)
+
+    id: str = Field(..., description="Unique identifier for the option (e.g., 'opt_1')")
+    text: str = Field(..., min_length=1, description="Text displayed to the learner")
+    visual_cue: str | None = Field(default=None, description="Optional icon or visual representation")
+
+
+class LearnerMultipleChoiceContent(BaseModel):
+    """Learner-facing multiple choice payload (no correct_answer_id, no explanation)."""
+    model_config = ConfigDict(frozen=True)
+
+    activity_type: Literal[ActivityType.MULTIPLE_CHOICE] = ActivityType.MULTIPLE_CHOICE
+    question: str = Field(..., min_length=3, description="The primary prompt or question for the learner")
+    options: list[LearnerMultipleChoiceOption] = Field(
+        ..., min_length=2, max_length=5, description="Selectable options"
+    )
+
+
+class LearnerMatchingContent(BaseModel):
+    """Learner-facing matching payload (no authoritative pairs mapping)."""
+    model_config = ConfigDict(frozen=True)
+
+    activity_type: Literal[ActivityType.MATCHING] = ActivityType.MATCHING
+    prompt: str = Field(..., min_length=3, description="Instructions")
+    left_items: list[MatchingItem] = Field(..., min_length=2, max_length=5)
+    right_items: list[MatchingItem] = Field(..., min_length=2, max_length=5)
+
+
+class LearnerOrderingContent(BaseModel):
+    """Learner-facing ordering payload (no correct_sequence)."""
+    model_config = ConfigDict(frozen=True)
+
+    activity_type: Literal[ActivityType.ORDERING] = ActivityType.ORDERING
+    prompt: str = Field(..., min_length=3, description="Instructions")
+    items: list[OrderingItem] = Field(..., min_length=3, max_length=6)
+    direction: str = Field(default="ascending")
+
+
+class LearnerVisualElement(BaseModel):
+    """Learner-facing scene element (no is_target indicator)."""
+    model_config = ConfigDict(frozen=True)
+
+    id: str = Field(..., description="Element identifier")
+    label: str = Field(..., min_length=1, description="Name or descriptive label")
+    category: str = Field(default="general", description="Category of element")
+    bounding_hint: str | None = Field(default=None)
+
+
+class LearnerVisualIdentificationContent(BaseModel):
+    """Learner-facing visual scene payload (no target_id, no feedback_clue)."""
+    model_config = ConfigDict(frozen=True)
+
+    activity_type: Literal[ActivityType.VISUAL_IDENTIFICATION] = ActivityType.VISUAL_IDENTIFICATION
+    prompt: str = Field(..., min_length=3)
+    scene_description: str = Field(..., min_length=5)
+    elements: list[LearnerVisualElement] = Field(..., min_length=2, max_length=6)
+
+
+class LearnerDragDropContent(BaseModel):
+    """Learner-facing drag & drop payload (no correct_mapping)."""
+    model_config = ConfigDict(frozen=True)
+
+    activity_type: Literal[ActivityType.DRAG_DROP] = ActivityType.DRAG_DROP
+    prompt: str = Field(..., min_length=3)
+    items: list[DragItem] = Field(..., min_length=2, max_length=6)
+    zones: list[DropZone] = Field(..., min_length=2, max_length=4)
+
+
+LearnerActivityContent = Annotated[
+    Union[
+        LearnerMultipleChoiceContent,
+        LearnerMatchingContent,
+        LearnerOrderingContent,
+        LearnerVisualIdentificationContent,
+        LearnerDragDropContent,
+    ],
+    Field(discriminator="activity_type"),
+]
+
+
+class LearnerActivityQuestion(BaseModel):
+    """Learner-facing question container with no authoritative answers or explanations."""
+    model_config = ConfigDict(frozen=True)
+
+    id: str = Field(..., description="Stable unique identifier for this question")
+    question_number: int = Field(..., ge=1)
+    question_type: ActivityType = Field(..., description="Modality of this specific question")
+    content: LearnerActivityContent = Field(..., description="Learner-safe interactive content")
+    hints: list[str] = Field(default_factory=list)
+    weight: float = Field(default=1.0, ge=0.1, le=5.0)
+
+
+class LearnerActivity(BaseModel):
+    """Learner-facing activity model completely sanitized of answer keys."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, description="Unique activity instance ID")
+    objective_id: uuid.UUID | str = Field(..., description="Associated learning objective ID or slug")
+    activity_type: ActivityType = Field(..., description="Primary modality of this activity")
+    title: str = Field(..., min_length=1)
+    instructions: str = Field(..., min_length=1)
+    difficulty_level: int = Field(default=1, ge=1, le=5)
+    questions: list[LearnerActivityQuestion] = Field(default_factory=list)
+    content: LearnerActivityContent | None = Field(default=None)
+    hints: list[str] = Field(default_factory=list)
+    scaffolding_level: int = Field(default=1, ge=1, le=3)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+def _sanitize_content_to_learner_safe(content: ActivityContent | Any) -> LearnerActivityContent:
+    if isinstance(content, MultipleChoiceContent):
+        return LearnerMultipleChoiceContent(
+            activity_type=ActivityType.MULTIPLE_CHOICE,
+            question=content.question,
+            options=[
+                LearnerMultipleChoiceOption(
+                    id=opt.id,
+                    text=opt.text,
+                    visual_cue=opt.visual_cue,
+                )
+                for opt in content.options
+            ],
+        )
+    elif isinstance(content, MatchingContent):
+        return LearnerMatchingContent(
+            activity_type=ActivityType.MATCHING,
+            prompt=content.prompt,
+            left_items=content.left_items,
+            right_items=content.right_items,
+        )
+    elif isinstance(content, OrderingContent):
+        return LearnerOrderingContent(
+            activity_type=ActivityType.ORDERING,
+            prompt=content.prompt,
+            items=content.items,
+            direction=content.direction,
+        )
+    elif isinstance(content, VisualIdentificationContent):
+        return LearnerVisualIdentificationContent(
+            activity_type=ActivityType.VISUAL_IDENTIFICATION,
+            prompt=content.prompt,
+            scene_description=content.scene_description,
+            elements=[
+                LearnerVisualElement(
+                    id=elem.id,
+                    label=elem.label,
+                    category=elem.category,
+                    bounding_hint=elem.bounding_hint,
+                )
+                for elem in content.elements
+            ],
+        )
+    elif isinstance(content, DragDropContent):
+        return LearnerDragDropContent(
+            activity_type=ActivityType.DRAG_DROP,
+            prompt=content.prompt,
+            items=content.items,
+            zones=content.zones,
+        )
+    elif isinstance(
+        content,
+        (
+            LearnerMultipleChoiceContent,
+            LearnerMatchingContent,
+            LearnerOrderingContent,
+            LearnerVisualIdentificationContent,
+            LearnerDragDropContent,
+        ),
+    ):
+        return content
+    elif isinstance(content, dict):
+        act_type = content.get("activity_type")
+        if act_type == ActivityType.MULTIPLE_CHOICE:
+            return LearnerMultipleChoiceContent(
+                activity_type=ActivityType.MULTIPLE_CHOICE,
+                question=content.get("question", ""),
+                options=[
+                    LearnerMultipleChoiceOption(
+                        id=opt.get("id", ""),
+                        text=opt.get("text", ""),
+                        visual_cue=opt.get("visual_cue"),
+                    ) if isinstance(opt, dict) else opt
+                    for opt in content.get("options", [])
+                ],
+            )
+        elif act_type == ActivityType.MATCHING:
+            return LearnerMatchingContent(
+                activity_type=ActivityType.MATCHING,
+                prompt=content.get("prompt", ""),
+                left_items=content.get("left_items", []),
+                right_items=content.get("right_items", []),
+            )
+        elif act_type == ActivityType.ORDERING:
+            return LearnerOrderingContent(
+                activity_type=ActivityType.ORDERING,
+                prompt=content.get("prompt", ""),
+                items=content.get("items", []),
+                direction=content.get("direction", "left_to_right"),
+            )
+        elif act_type == ActivityType.VISUAL_IDENTIFICATION:
+            return LearnerVisualIdentificationContent(
+                activity_type=ActivityType.VISUAL_IDENTIFICATION,
+                prompt=content.get("prompt", ""),
+                scene_description=content.get("scene_description", ""),
+                elements=[
+                    LearnerVisualElement(
+                        id=elem.get("id", ""),
+                        label=elem.get("label", ""),
+                        category=elem.get("category", "general"),
+                        bounding_hint=elem.get("bounding_hint"),
+                    ) if isinstance(elem, dict) else elem
+                    for elem in content.get("elements", [])
+                ],
+            )
+        elif act_type == ActivityType.DRAG_DROP:
+            return LearnerDragDropContent(
+                activity_type=ActivityType.DRAG_DROP,
+                prompt=content.get("prompt", ""),
+                items=content.get("items", []),
+                zones=content.get("zones", []),
+            )
+    raise ValueError(f"Unsupported content type for learner sanitization: {type(content)}")
 
 
 # ── Request / Response DTOs ──────────────────────────────────────────────────
@@ -262,17 +594,30 @@ class ActivityGenerateRequest(BaseModel):
         default=None,
         description="Optional explicit activity type override. If None, chosen from profile or objective defaults.",
     )
+
+    @field_validator("activity_type", mode="before")
+    @classmethod
+    def normalize_activity_type(cls, v: Any) -> Any:
+        if v in ("auto", "", None):
+            return None
+        return v
     difficulty_level: int | None = Field(
         default=None,
         ge=1,
         le=5,
         description="Optional explicit difficulty tier (1-5). If None, respects teacher overrides or objective difficulty.",
     )
+    question_count: int = Field(
+        default=5,
+        ge=3,
+        le=10,
+        description="Target number of distinct questions in the activity (3-10, default 5)",
+    )
     item_count: int = Field(
         default=4,
         ge=2,
         le=10,
-        description="Target number of interactive items, choices, or matching pairs (2-10)",
+        description="Target number of interactive items, choices, or matching pairs per question (2-10)",
     )
     language: str = Field(
         default="en",
@@ -333,7 +678,7 @@ class EffectiveGenerationPrompt(BaseModel):
 
 class ActivityGenerateResponse(BaseModel):
     """Response returned when an activity has been generated and validated."""
-    activity: Activity
+    activity: LearnerActivity | Activity
     fallback_used: bool = Field(
         ..., description="True if deterministic fallback was triggered due to LLM failure/timeout/validation error"
     )
@@ -465,27 +810,78 @@ ActivitySubmissionPayload = Annotated[
 # ── Phase 5: Interaction & Evaluation DTOs ────────────────────────────────────
 
 
+class QuestionSubmission(BaseModel):
+    """Learner submission for an individual question item."""
+    model_config = ConfigDict(frozen=True)
+
+    question_id: str = Field(..., description="Stable question identifier (e.g. 'q_1')")
+    submission: ActivitySubmissionPayload = Field(..., description="Modality-specific answer payload")
+    hints_used: int = Field(default=0, ge=0, le=10, description="Hints viewed for this specific question")
+    time_spent_seconds: float = Field(default=0.0, ge=0.0, description="Time spent on this question in seconds")
+
+
 class ActivitySubmissionRequest(BaseModel):
     """Request sent when a learner submits an answer for evaluation."""
     activity_id: uuid.UUID = Field(..., description="ID of the activity being answered")
     objective_id: uuid.UUID | str = Field(..., description="ID of the associated learning objective")
     activity_type: ActivityType = Field(..., description="Modality of the activity")
-    submission: ActivitySubmissionPayload = Field(
-        ..., description="Modality-specific answer payload provided by learner"
+    questions: list[QuestionSubmission] = Field(
+        default_factory=list,
+        description="List of per-question answers submitted by the learner",
+    )
+    submission: ActivitySubmissionPayload | None = Field(
+        default=None,
+        description="Legacy single-question submission payload (for backward compatibility)",
     )
     learner_id: uuid.UUID | None = Field(
         default=None, description="Optional learner ID for session tracking"
     )
     hints_used: int = Field(
-        default=0, ge=0, le=10, description="Count of scaffolding hints viewed during the activity"
+        default=0, ge=0, le=50, description="Total count of scaffolding hints viewed during the activity"
     )
     time_spent_seconds: float = Field(
-        default=0.0, ge=0.0, description="Total seconds spent on this interaction"
+        default=0.0, ge=0.0, description="Total seconds spent on this activity interaction"
     )
     activity_content: ActivityContent | None = Field(
         default=None,
         description="Authoritative activity content for stateless evaluation or cached sessions",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_submission(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            questions = data.get("questions")
+            sub = data.get("submission")
+            if not questions and sub is None:
+                raise ValueError("Either 'questions' or 'submission' payload must be provided.")
+            if (not questions or len(questions) == 0) and sub is not None:
+                data["questions"] = [
+                    {
+                        "question_id": "q_1",
+                        "submission": sub,
+                        "hints_used": data.get("hints_used", 0),
+                        "time_spent_seconds": data.get("time_spent_seconds", 0.0),
+                    }
+                ]
+            elif questions and len(questions) > 0 and sub is None:
+                first_q = questions[0]
+                data["submission"] = first_q.get("submission") if isinstance(first_q, dict) else getattr(first_q, "submission", None)
+        return data
+
+
+class QuestionEvaluationResult(BaseModel):
+    """Authoritative evaluation result for a single question item."""
+    question_id: str = Field(..., description="Evaluated question ID")
+    question_number: int = Field(default=1, ge=1)
+    is_correct: bool = Field(..., description="Whether the response is completely correct")
+    score: float = Field(..., ge=0.0, le=1.0, description="Question score (0.0 to 1.0 with partial credit)")
+    feedback: str = Field(..., description="Positive, clear, non-shaming feedback for this question")
+    explanation: str | None = Field(default=None, description="Pedagogical explanation revealed post-response")
+    correct_answer_summary: dict[str, Any] = Field(default_factory=dict)
+    evaluation_details: dict[str, Any] = Field(default_factory=dict)
+    hints_used: int = Field(default=0)
+    time_spent_seconds: float = Field(default=0.0)
 
 
 class ActivityEvaluationResponse(BaseModel):
@@ -495,11 +891,19 @@ class ActivityEvaluationResponse(BaseModel):
     score: float = Field(
         ..., ge=0.0, le=1.0, description="Calculated accuracy score between 0.0 and 1.0"
     )
+    questions_total: int = Field(default=1, ge=1, description="Total number of questions in activity")
+    questions_answered: int = Field(default=1, ge=0, description="Number of questions answered by learner")
+    questions_correct: int = Field(default=0, ge=0, description="Number of fully correct questions")
+    percentage: float = Field(default=0.0, ge=0.0, le=100.0, description="Overall percentage (0.0 to 100.0)")
     mastery_achieved: bool = Field(
         ..., description="Whether accuracy and assistance satisfy objective criteria"
     )
     feedback: str = Field(
         ..., description="Cognitive Calm feedback designed to be clear, positive, and non-shaming"
+    )
+    question_results: list[QuestionEvaluationResult] = Field(
+        default_factory=list,
+        description="Detailed evaluation results for every question item in the activity",
     )
     explanation: str | None = Field(
         default=None, description="Pedagogical explanation or guidance for post-interaction learning"

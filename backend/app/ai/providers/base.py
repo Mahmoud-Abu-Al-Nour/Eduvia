@@ -45,6 +45,7 @@ class GenerationConfig:
     top_p: float = 0.95
     stop_sequences: list[str] = field(default_factory=list)
     response_format: str = "text"  # "text" | "json"
+    model: str | None = None
 
 
 @dataclass

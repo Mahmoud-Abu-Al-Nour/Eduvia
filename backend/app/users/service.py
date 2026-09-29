@@ -1,12 +1,17 @@
+"""
+Eduvia — User Service Layer
+"""
+from __future__ import annotations
+
 import uuid
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.security import get_password_hash
-from app.users.models import User
-from app.users.schemas import UserCreate, UserUpdate
+from app.users.models import User, UserRole
+from app.users.schemas import UserAdminUpdate, UserCreate, UserUpdate
 
 
 class UserService:
@@ -23,9 +28,18 @@ class UserService:
         result = await self.session.execute(select(User).where(User.email == email))
         return result.scalars().first()
 
-    async def get_multi(self, skip: int = 0, limit: int = 100) -> Sequence[User]:
-        """Get multiple users."""
-        result = await self.session.execute(select(User).offset(skip).limit(limit))
+    async def get_multi(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        role: UserRole | None = None,
+    ) -> Sequence[User]:
+        """Get multiple users with optional role filtering."""
+        query = select(User)
+        if role is not None:
+            query = query.where(User.role == role)
+        query = query.order_by(User.created_at.desc()).offset(skip).limit(limit)
+        result = await self.session.execute(query)
         return result.scalars().all()
 
     async def create(self, user_in: UserCreate) -> User:
@@ -42,7 +56,7 @@ class UserService:
         await self.session.refresh(db_obj)
         return db_obj
 
-    async def update(self, db_obj: User, user_in: UserUpdate) -> User:
+    async def update(self, db_obj: User, user_in: UserUpdate | UserAdminUpdate) -> User:
         """Update a user."""
         update_data = user_in.model_dump(exclude_unset=True)
         if "password" in update_data and update_data["password"]:
@@ -59,9 +73,41 @@ class UserService:
         return db_obj
 
     async def delete(self, user_id: uuid.UUID) -> User | None:
-        """Delete a user (soft delete is preferred, but this is a hard delete)."""
+        """Delete a user."""
         db_obj = await self.get_by_id(user_id)
         if db_obj:
             await self.session.delete(db_obj)
             await self.session.commit()
         return db_obj
+
+    async def get_platform_stats(self) -> dict[str, int]:
+        """Compute platform-wide KPIs for administrative oversight."""
+        from app.analytics.models import PerformanceEvent
+        from app.curriculum.models import Curriculum
+        from app.learners.models import Learner
+
+        total_users = (await self.session.execute(select(func.count(User.id)))).scalar_one() or 0
+        total_admins = (
+            await self.session.execute(select(func.count(User.id)).where(User.role == UserRole.admin))
+        ).scalar_one() or 0
+        total_teachers = (
+            await self.session.execute(select(func.count(User.id)).where(User.role == UserRole.teacher))
+        ).scalar_one() or 0
+        total_learners = (
+            await self.session.execute(select(func.count(Learner.id)))
+        ).scalar_one() or 0
+        total_curricula = (
+            await self.session.execute(select(func.count(Curriculum.id)))
+        ).scalar_one() or 0
+        total_activities_completed = (
+            await self.session.execute(select(func.count(PerformanceEvent.id)))
+        ).scalar_one() or 0
+
+        return {
+            "total_users": total_users,
+            "total_admins": total_admins,
+            "total_teachers": total_teachers,
+            "total_learners": total_learners,
+            "total_curricula": total_curricula,
+            "total_activities_completed": total_activities_completed,
+        }

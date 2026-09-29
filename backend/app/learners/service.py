@@ -1,9 +1,13 @@
 """
-Eduvia -- Learner Service Layer (Phase 3)
+Eduvia -- Learner Service Layer (Phase 3 & RBAC Extension)
 
 Encapsulates all database operations for Learners and Learner Profiles.
-Maintains teacher ownership isolation and admin visibility.
+Maintains teacher ownership isolation, admin platform visibility,
+and authenticated learner self-access.
 """
+from __future__ import annotations
+
+import copy
 import uuid
 from datetime import UTC, datetime
 from typing import Optional
@@ -13,12 +17,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
+from app.auth.permissions import get_user_role
 from app.learners.models import Learner, LearnerProfile
 from app.learners.schemas import (
     LearnerCreate,
     LearnerObservationCreate,
     LearnerUpdate,
 )
+from app.users.models import User, UserRole
 
 
 class LearnerService:
@@ -26,14 +32,39 @@ class LearnerService:
         self.session = session
 
     async def list_learners(
-        self, teacher_id: Optional[uuid.UUID], is_admin: bool = False
+        self,
+        teacher_id: Optional[uuid.UUID] = None,
+        is_admin: bool = False,
+        current_user: Optional[User] = None,
     ) -> list[Learner]:
         """
-        List learners. Admins can view all learners; teachers can only view their own.
+        List learners according to requester scope:
+        - Admin: receives all registered learners.
+        - Teacher: receives only assigned learners.
+        - Learner: receives only their own learner record.
         """
-        stmt = select(Learner).options(selectinload(Learner.profile)).order_by(Learner.created_at.desc())
-        if not is_admin and teacher_id is not None:
+        stmt = (
+            select(Learner)
+            .options(selectinload(Learner.profile))
+            .order_by(Learner.created_at.desc())
+        )
+
+        if current_user:
+            role = get_user_role(current_user)
+            if role == UserRole.admin:
+                pass
+            elif role == UserRole.teacher:
+                stmt = stmt.where(Learner.teacher_id == current_user.id)
+            elif role == UserRole.learner:
+                stmt = stmt.where(Learner.user_id == current_user.id)
+            else:
+                return []
+        elif is_admin:
+            pass
+        elif teacher_id is not None:
             stmt = stmt.where(Learner.teacher_id == teacher_id)
+        else:
+            return []
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -43,10 +74,14 @@ class LearnerService:
         learner_id: uuid.UUID,
         teacher_id: Optional[uuid.UUID] = None,
         is_admin: bool = False,
+        current_user: Optional[User] = None,
     ) -> Optional[Learner]:
         """
         Retrieve a learner with full profile.
-        Enforces teacher ownership check unless is_admin is True.
+        Enforces server-side IDOR protection:
+        - Admin: Full access.
+        - Teacher: Authorized only if learner.teacher_id == teacher.id.
+        - Learner: Authorized only if learner.user_id == user.id.
         """
         stmt = (
             select(Learner)
@@ -59,13 +94,41 @@ class LearnerService:
         if not learner:
             return None
 
-        if not is_admin and teacher_id is not None and learner.teacher_id != teacher_id:
-            return None
+        if current_user:
+            role = get_user_role(current_user)
+            if role == UserRole.admin:
+                return learner
+            elif role == UserRole.teacher:
+                if learner.teacher_id != current_user.id:
+                    return None
+            elif role == UserRole.learner:
+                if learner.user_id != current_user.id:
+                    return None
+            else:
+                return None
+        elif not is_admin:
+            if teacher_id is not None and learner.teacher_id != teacher_id:
+                return None
+            elif teacher_id is None:
+                return None
 
         return learner
 
+    async def get_by_user_id(self, user_id: uuid.UUID) -> Optional[Learner]:
+        """Retrieve learner record linked to an authenticated User account."""
+        stmt = (
+            select(Learner)
+            .options(selectinload(Learner.profile))
+            .where(Learner.user_id == user_id)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
     async def create(
-        self, data: LearnerCreate, teacher_id: Optional[uuid.UUID]
+        self,
+        data: LearnerCreate,
+        teacher_id: Optional[uuid.UUID] = None,
+        user_id: Optional[uuid.UUID] = None,
     ) -> Learner:
         """
         Create a new learner and initialize their associated LearnerProfile.
@@ -75,9 +138,9 @@ class LearnerService:
             age_group=data.age_group,
             learning_level=data.learning_level,
             teacher_id=teacher_id,
+            user_id=data.user_id or user_id,
         )
 
-        # Build initial profile with defaults and any teacher-provided values
         profile = LearnerProfile(learner=learner)
 
         if data.communication_preferences:
@@ -111,8 +174,7 @@ class LearnerService:
         self.session.add(profile)
         await self.session.commit()
 
-        # Re-fetch with eager profile loading
-        return await self.get_by_id(learner.id, teacher_id=teacher_id, is_admin=True)  # type: ignore
+        return await self.get_by_id(learner.id, is_admin=True)  # type: ignore
 
     async def update(
         self,
@@ -120,15 +182,49 @@ class LearnerService:
         data: LearnerUpdate,
         teacher_id: Optional[uuid.UUID] = None,
         is_admin: bool = False,
+        current_user: Optional[User] = None,
     ) -> Optional[Learner]:
         """
         Update learner metadata and/or profile fields.
+        Enforces scope rules: learners can only edit allowed personal preferences.
         """
-        learner = await self.get_by_id(learner_id, teacher_id=teacher_id, is_admin=is_admin)
+        learner = await self.get_by_id(
+            learner_id, teacher_id=teacher_id, is_admin=is_admin, current_user=current_user
+        )
         if not learner:
             return None
 
-        # Update basic learner fields
+        is_learner_role = False
+        if current_user:
+            role = get_user_role(current_user)
+            if role == UserRole.learner:
+                is_learner_role = True
+
+        if is_learner_role:
+            # Learner self-update: allowed personal preferences only
+            if data.profile and learner.profile:
+                profile = learner.profile
+                p_data = data.profile
+
+                if p_data.communication_preferences is not None:
+                    profile.communication_preferences = {
+                        **profile.communication_preferences,
+                        **p_data.communication_preferences,
+                    }
+                    flag_modified(profile, "communication_preferences")
+
+                if p_data.support_requirements is not None:
+                    # Allow sensory and pacing accommodations
+                    profile.support_requirements = {
+                        **profile.support_requirements,
+                        **p_data.support_requirements,
+                    }
+                    flag_modified(profile, "support_requirements")
+
+            await self.session.commit()
+            return await self.get_by_id(learner.id, current_user=current_user)
+
+        # Teacher / Admin update:
         if data.name is not None:
             learner.name = data.name
         if data.age_group is not None:
@@ -137,8 +233,9 @@ class LearnerService:
             learner.learning_level = data.learning_level
         if data.is_active is not None:
             learner.is_active = data.is_active
+        if data.user_id is not None:
+            learner.user_id = data.user_id
 
-        # Update profile fields if provided
         if data.profile and learner.profile:
             profile = learner.profile
             p_data = data.profile
@@ -167,18 +264,28 @@ class LearnerService:
                 flag_modified(profile, "teacher_overrides")
 
         await self.session.commit()
-        return await self.get_by_id(learner.id, teacher_id=teacher_id, is_admin=is_admin)
+        return await self.get_by_id(
+            learner.id, teacher_id=teacher_id, is_admin=is_admin, current_user=current_user
+        )
 
     async def delete(
         self,
         learner_id: uuid.UUID,
         teacher_id: Optional[uuid.UUID] = None,
         is_admin: bool = False,
+        current_user: Optional[User] = None,
     ) -> bool:
         """
-        Delete learner (cascade deletes learner_profile).
+        Delete learner (cascade deletes learner_profile). Learners cannot delete.
         """
-        learner = await self.get_by_id(learner_id, teacher_id=teacher_id, is_admin=is_admin)
+        if current_user:
+            role = get_user_role(current_user)
+            if role == UserRole.learner:
+                return False
+
+        learner = await self.get_by_id(
+            learner_id, teacher_id=teacher_id, is_admin=is_admin, current_user=current_user
+        )
         if not learner:
             return False
 
@@ -192,11 +299,19 @@ class LearnerService:
         observation: LearnerObservationCreate,
         teacher_id: Optional[uuid.UUID] = None,
         is_admin: bool = False,
+        current_user: Optional[User] = None,
     ) -> Optional[dict]:
         """
-        Record a learning pattern observation to the learner profile.
+        Record a learning pattern observation to the learner profile. Learners cannot record teacher observations.
         """
-        learner = await self.get_by_id(learner_id, teacher_id=teacher_id, is_admin=is_admin)
+        if current_user:
+            role = get_user_role(current_user)
+            if role == UserRole.learner:
+                return None
+
+        learner = await self.get_by_id(
+            learner_id, teacher_id=teacher_id, is_admin=is_admin, current_user=current_user
+        )
         if not learner or not learner.profile:
             return None
 
@@ -209,7 +324,6 @@ class LearnerService:
             "teacher_note": observation.teacher_note,
         }
 
-        # Append to observations list
         current_obs = list(learner.profile.observations)
         current_obs.append(obs_item)
         learner.profile.observations = current_obs

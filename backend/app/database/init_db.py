@@ -14,6 +14,7 @@ import app.users.models  # noqa: F401
 import app.curriculum.models  # noqa: F401
 import app.learners.models  # noqa: F401
 import app.analytics.models  # noqa: F401
+import app.research.models  # noqa: F401
 
 logger = structlog.get_logger(__name__)
 

@@ -147,6 +147,7 @@ class LearnerCreate(BaseModel):
         default="beginner",
         description="Current educational stage: emerging, beginner, intermediate, advanced",
     )
+    user_id: Optional[uuid.UUID] = None
     # Optional initial profile configuration
     communication_preferences: Optional[dict[str, Any]] = None
     support_requirements: Optional[dict[str, Any]] = None
@@ -160,6 +161,7 @@ class LearnerUpdate(BaseModel):
     age_group: Optional[str] = None
     learning_level: Optional[str] = None
     is_active: Optional[bool] = None
+    user_id: Optional[uuid.UUID] = None
     profile: Optional[LearnerProfileUpdate] = None
 
 
@@ -172,6 +174,7 @@ class LearnerResponse(BaseModel):
     learning_level: str
     is_active: bool
     teacher_id: Optional[uuid.UUID] = None
+    user_id: Optional[uuid.UUID] = None
     created_at: datetime
     updated_at: datetime
 

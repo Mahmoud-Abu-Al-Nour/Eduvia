@@ -20,6 +20,7 @@ from typing import Any
 from app.activities.schemas import (
     Activity,
     ActivityContent,
+    ActivityQuestion,
     ActivityType,
     DragDropContent,
     DragItem,
@@ -51,9 +52,11 @@ class ContentBank:
         for item in items:
             self._items_by_key[item.content_key] = item
             self._items_by_id[item.id] = item
-            if item.objective_id not in self._items_by_objective:
-                self._items_by_objective[item.objective_id] = []
-            self._items_by_objective[item.objective_id].append(item)
+            for k in (item.objective_id, str(item.objective_id), item.objective_key):
+                if k not in self._items_by_objective:
+                    self._items_by_objective[k] = []
+                if item not in self._items_by_objective[k]:
+                    self._items_by_objective[k].append(item)
 
     @property
     def items(self) -> list[ContentItemDef]:
@@ -63,7 +66,7 @@ class ContentBank:
     @property
     def by_objective(self) -> dict[uuid.UUID, list[ContentItemDef]]:
         """Return content item definitions indexed by objective UUID."""
-        return self._items_by_objective
+        return {k: v for k, v in self._items_by_objective.items() if isinstance(k, uuid.UUID)}
 
     def get_by_key(self, content_key: str) -> ContentItemDef | None:
         return self._items_by_key.get(content_key)
@@ -101,6 +104,123 @@ class ContentBank:
         if difficulty_level is not None:
             items = [i for i in items if i.difficulty_level == difficulty_level]
         return items
+
+    def get_items_for_objective(
+        self,
+        objective_id: uuid.UUID | str,
+        activity_type: ActivityType | None = None,
+        count: int = 5,
+    ) -> list[ContentItemDef]:
+        """
+        Retrieve distinct content items from the objective's canonical family for multi-question generation.
+        Returns the canonical family of source items to be rendered into the target modality.
+        """
+        family = self._items_by_objective.get(objective_id, [])
+        if not family and isinstance(objective_id, str):
+            try:
+                family = self._items_by_objective.get(uuid.UUID(objective_id), [])
+            except ValueError:
+                pass
+        if not family:
+            family = self.items[:count]
+        if len(family) >= count:
+            return family[:count]
+        return family
+
+    def create_question_from_content(
+        self,
+        content_def: ContentItemDef,
+        target_modality: ActivityType,
+        question_number: int = 1,
+        question_id: str | None = None,
+        language: str = "en",
+    ) -> ActivityQuestion:
+        """Render a single ContentItemDef as an ActivityQuestion in the target modality."""
+        activity = self.create_activity_from_content(
+            content_def=content_def,
+            target_modality=target_modality,
+            language=language,
+        )
+        hints = [h.get(language, h.get("en", "")) for h in content_def.hints]
+        if not hints:
+            hints = ["Take a calm moment to observe all options carefully."]
+        explanation = content_def.explanation.get(
+            language, content_def.explanation.get("en", "Well done!")
+        )
+        return ActivityQuestion(
+            id=question_id or f"q_{content_def.content_key}_{question_number}",
+            question_number=question_number,
+            question_type=target_modality,
+            content=activity.content,
+            content_source_key=content_def.content_key,
+            hints=hints,
+            explanation=explanation,
+            weight=1.0,
+        )
+
+    def assemble_multi_question_activity(
+        self,
+        objective_id: uuid.UUID | str,
+        activity_type: ActivityType,
+        count: int = 5,
+        difficulty_level: int = 1,
+        language: str = "en",
+        seed: int = 0,
+        title: str | None = None,
+        instructions: str | None = None,
+    ) -> Activity:
+        """
+        Assemble a homogeneous multi-question Activity containing 3-10 distinct questions
+        from the learning objective's canonical content family.
+        """
+        clamped_count = min(10, max(3, count))
+        family = self._items_by_objective.get(objective_id, [])
+        if not family and isinstance(objective_id, str):
+            try:
+                family = self._items_by_objective.get(uuid.UUID(objective_id), [])
+            except ValueError:
+                pass
+        if not family:
+            # Fallback to any available content items if objective not directly indexed
+            family = self.items[:5]
+
+        questions: list[ActivityQuestion] = []
+        for i in range(clamped_count):
+            source_item = family[(i + seed) % len(family)]
+            q_id = f"q_{source_item.content_key}_{i + 1}"
+            question = self.create_question_from_content(
+                content_def=source_item,
+                target_modality=activity_type,
+                question_number=i + 1,
+                question_id=q_id,
+                language=language,
+            )
+            questions.append(question)
+
+        act_title = title or (
+            family[0].prompt.get(language, family[0].prompt.get("en", "Learning Activity"))
+            if family
+            else "Learning Activity"
+        )
+        act_inst = instructions or "Complete each question calmly to demonstrate your understanding."
+
+        top_hints = list(questions[0].hints) if questions and questions[0].hints else ["Take a calm moment to observe each question carefully."]
+
+        return Activity(
+            objective_id=objective_id,
+            activity_type=activity_type,
+            title=act_title,
+            instructions=act_inst,
+            difficulty_level=difficulty_level,
+            questions=questions,
+            content=questions[0].content,
+            hints=top_hints,
+            metadata={
+                "source": "content_bank_canonical_family",
+                "question_count": clamped_count,
+                "sources_used": [q.content_source_key for q in questions],
+            },
+        )
 
     def convert_to_activity_content(
         self,
@@ -452,3 +572,29 @@ def get_content_bank() -> ContentBank:
     if _CONTENT_BANK_INSTANCE is None:
         _CONTENT_BANK_INSTANCE = ContentBank()
     return _CONTENT_BANK_INSTANCE
+
+
+def assemble_multi_question_activity(
+    objective_id: uuid.UUID | str,
+    activity_type: ActivityType,
+    count: int = 5,
+    difficulty_level: int = 1,
+    language: str = "en",
+    seed: int = 0,
+    title: str | None = None,
+    instructions: str | None = None,
+) -> Activity:
+    try:
+        obj_uuid = uuid.UUID(str(objective_id)) if isinstance(objective_id, str) else objective_id
+    except ValueError:
+        obj_uuid = str(objective_id)
+    return get_content_bank().assemble_multi_question_activity(
+        objective_id=obj_uuid,
+        activity_type=activity_type,
+        count=count,
+        difficulty_level=difficulty_level,
+        language=language,
+        seed=seed,
+        title=title,
+        instructions=instructions,
+    )

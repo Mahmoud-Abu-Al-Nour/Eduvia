@@ -9,11 +9,13 @@ from app.database.base import EduviaBase
 class UserRole(str, enum.Enum):
     admin = "admin"
     teacher = "teacher"
+    learner = "learner"
+    researcher = "researcher"
 
 
 class User(EduviaBase):
     """
-    User model representing Teachers and Admins.
+    User model representing Admins, Teachers, and Learners.
     """
 
     __tablename__ = "users"
