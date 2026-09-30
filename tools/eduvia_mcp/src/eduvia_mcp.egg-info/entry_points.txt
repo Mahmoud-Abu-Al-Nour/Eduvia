@@ -1,0 +1,2 @@
+[console_scripts]
+eduvia-mcp = eduvia_mcp.__main__:main

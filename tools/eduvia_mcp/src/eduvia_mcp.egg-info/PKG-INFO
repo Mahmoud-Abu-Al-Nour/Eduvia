@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: eduvia-mcp
+Version: 0.1.0
+Summary: Local developer MCP server for Eduvia
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: mcp>=2.2.0
+Requires-Dist: pydantic>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+
+# Eduvia MCP Server
+
+Local developer Model Context Protocol (MCP) server providing focused repository inspection and verification tools for Eduvia.

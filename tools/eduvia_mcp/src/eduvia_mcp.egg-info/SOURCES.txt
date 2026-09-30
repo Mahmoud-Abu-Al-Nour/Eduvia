@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/eduvia_mcp/__init__.py
+src/eduvia_mcp/__main__.py
+src/eduvia_mcp/project.py
+src/eduvia_mcp/server.py
+src/eduvia_mcp/tools.py
+src/eduvia_mcp.egg-info/PKG-INFO
+src/eduvia_mcp.egg-info/SOURCES.txt
+src/eduvia_mcp.egg-info/dependency_links.txt
+src/eduvia_mcp.egg-info/entry_points.txt
+src/eduvia_mcp.egg-info/requires.txt
+src/eduvia_mcp.egg-info/top_level.txt
